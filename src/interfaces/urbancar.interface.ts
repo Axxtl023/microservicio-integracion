@@ -12,6 +12,14 @@ export interface Vehiculo {
   proveedor?:   string;
 }
 
+export interface PaginatedVehiculos {
+  items:      Vehiculo[];
+  total:      number;
+  page:       number;
+  limit:      number;
+  totalPages: number;
+}
+
 export interface Disponibilidad {
   vehiculoId: string;
   disponible: boolean;

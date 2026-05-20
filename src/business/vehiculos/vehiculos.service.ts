@@ -4,7 +4,7 @@ import type { IUrbancarClient } from '../../infrastructure/urbancar/i-urbancar.c
 import { IURBANCAR_CLIENT } from '../../infrastructure/urbancar/i-urbancar.client';
 import type { IRentcarClient } from '../../infrastructure/rentcar/i-rentcar.client';
 import { IRENTCAR_CLIENT } from '../../infrastructure/rentcar/i-rentcar.client';
-import type { Vehiculo, Disponibilidad } from '../../interfaces/urbancar.interface';
+import type { Vehiculo, PaginatedVehiculos, Disponibilidad } from '../../interfaces/urbancar.interface';
 
 @Injectable()
 export class VehiculosService implements IVehiculosService {
@@ -13,18 +13,21 @@ export class VehiculosService implements IVehiculosService {
     @Inject(IRENTCAR_CLIENT)  private readonly rentcar:  IRentcarClient,
   ) {}
 
-  async listar(params: ListarVehiculosParams): Promise<Vehiculo[]> {
-    const clean: Record<string, unknown> = {};
-    if (params.agenciaId)   clean.agenciaId   = params.agenciaId;
-    if (params.categoriaId) clean.categoriaId = params.categoriaId;
-    if (params.status)      clean.status      = params.status;
-    if (params.page)        clean.page        = params.page;
-    if (params.limit)       clean.limit       = params.limit;
+  async listar(params: ListarVehiculosParams): Promise<PaginatedVehiculos> {
+    const page  = Math.max(1, params.page  ?? 1);
+    const limit = Math.max(1, params.limit ?? 8);
 
-    // Consulta ambos proveedores en paralelo; si uno falla el otro sigue funcionando.
+    // Solo filtros se delegan a los proveedores; la paginación la hacemos
+    // sobre el catálogo fusionado para que page/limit sean consistentes
+    // independientemente de cuántos ítems aporta cada proveedor.
+    const providerParams: Record<string, unknown> = { limit: 200 };
+    if (params.agenciaId)   providerParams.agenciaId   = params.agenciaId;
+    if (params.categoriaId) providerParams.categoriaId = params.categoriaId;
+    if (params.status)      providerParams.status      = params.status;
+
     const [urbanResult, rentcarResult] = await Promise.allSettled([
-      this.urbancar.getVehiculos(clean),
-      this.rentcar.getVehiculos(clean),
+      this.urbancar.getVehiculos(providerParams),
+      this.rentcar.getVehiculos(providerParams),
     ]);
 
     const urbanVehiculos = urbanResult.status === 'fulfilled'
@@ -34,7 +37,13 @@ export class VehiculosService implements IVehiculosService {
       ? rentcarResult.value.map(v => ({ ...v, proveedor: 'RentCar' }))
       : [];
 
-    return [...urbanVehiculos, ...rentcarVehiculos];
+    const all        = [...urbanVehiculos, ...rentcarVehiculos];
+    const total      = all.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const safePage   = Math.min(page, totalPages);
+    const items      = all.slice((safePage - 1) * limit, safePage * limit);
+
+    return { items, total, page: safePage, limit, totalPages };
   }
 
   async obtenerPorId(id: string): Promise<Vehiculo> {
