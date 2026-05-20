@@ -9,6 +9,7 @@ export interface Vehiculo {
   disponible:   boolean;
   status:       string | null;
   imagenUrl:    string | null;
+  proveedor?:   string;
 }
 
 export interface Disponibilidad {

@@ -27,8 +27,12 @@ export class VehiculosService implements IVehiculosService {
       this.rentcar.getVehiculos(clean),
     ]);
 
-    const urbanVehiculos   = urbanResult.status   === 'fulfilled' ? urbanResult.value   : [];
-    const rentcarVehiculos = rentcarResult.status  === 'fulfilled' ? rentcarResult.value : [];
+    const urbanVehiculos = urbanResult.status === 'fulfilled'
+      ? urbanResult.value.map(v => ({ ...v, proveedor: 'UrbanCar' }))
+      : [];
+    const rentcarVehiculos = rentcarResult.status === 'fulfilled'
+      ? rentcarResult.value.map(v => ({ ...v, proveedor: 'RentCar' }))
+      : [];
 
     return [...urbanVehiculos, ...rentcarVehiculos];
   }
