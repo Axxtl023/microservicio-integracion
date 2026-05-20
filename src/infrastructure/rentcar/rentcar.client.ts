@@ -13,19 +13,14 @@ export class RentcarClient implements IRentcarClient {
   private readonly http: AxiosInstance;
 
   constructor() {
-    const baseURL = process.env.RENTCAR_BASE_URL ?? '';
-    const token   = process.env.RENTCAR_TOKEN   ?? '';
-
+    // La API de RentCar EC es pública — no requiere token de autenticación.
     this.http = axios.create({
-      baseURL,
+      baseURL: process.env.RENTCAR_BASE_URL ?? '',
       timeout: 10_000,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+      headers: { 'Content-Type': 'application/json' },
     });
 
-    // Intercepta errores de aplicación { success: false, error: { code, message } }
+    // Registra en consola los errores de aplicación { success: false, error: { code, message } }
     this.http.interceptors.response.use(
       (response) => response,
       (error) => {
