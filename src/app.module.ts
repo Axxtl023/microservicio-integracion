@@ -7,10 +7,15 @@ import { IRENTCAR_CLIENT } from './infrastructure/rentcar/i-rentcar.client';
 import { VehiculosService } from './business/vehiculos/vehiculos.service';
 import { IVEHICULOS_SERVICE } from './business/vehiculos/interfaces/i-vehiculos.service';
 import { ProductosController } from './api/controllers/v1/ProductosController';
+import { VuelosClient } from './infrastructure/vuelos/vuelos.client';
+import { IVUELOS_CLIENT } from './infrastructure/vuelos/i-vuelos.client';
+import { VuelosService } from './business/vuelos/vuelos.service';
+import { IVUELOS_SERVICE } from './business/vuelos/interfaces/i-vuelos.service';
+import { VuelosController } from './api/controllers/v1/VuelosController';
 
 @Module({
   imports: [
-    // HttpModule exclusivo de UrbanCar — RentcarClient usa su propio axios.create()
+    // HttpModule exclusivo de UrbanCar — RentcarClient y VuelosClient usan axios.create() propio
     HttpModule.registerAsync({
       useFactory: () => ({
         baseURL:
@@ -21,19 +26,27 @@ import { ProductosController } from './api/controllers/v1/ProductosController';
       }),
     }),
   ],
-  controllers: [ProductosController],
+  controllers: [ProductosController, VuelosController],
   providers: [
     // ── UrbanCar (proveedor original — sin cambios) ───────────────────────────
     UrbancarClient,
     { provide: IURBANCAR_CLIENT, useExisting: UrbancarClient },
 
-    // ── RentCar EC (nuevo proveedor) ──────────────────────────────────────────
+    // ── RentCar EC ────────────────────────────────────────────────────────────
     RentcarClient,
     { provide: IRENTCAR_CLIENT, useExisting: RentcarClient },
 
-    // ── Servicio de negocio (agrega ambos proveedores) ────────────────────────
+    // ── Servicio de vehículos (agrega UrbanCar + RentCar) ────────────────────
     VehiculosService,
     { provide: IVEHICULOS_SERVICE, useExisting: VehiculosService },
+
+    // ── VuelosApp ─────────────────────────────────────────────────────────────
+    VuelosClient,
+    { provide: IVUELOS_CLIENT, useExisting: VuelosClient },
+
+    // ── Servicio de vuelos ────────────────────────────────────────────────────
+    VuelosService,
+    { provide: IVUELOS_SERVICE, useExisting: VuelosService },
   ],
 })
 export class AppModule {}
