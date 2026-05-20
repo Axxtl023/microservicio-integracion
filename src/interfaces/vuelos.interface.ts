@@ -9,6 +9,21 @@ export interface FlightAirline {
   countryId: string;
 }
 
+export interface FlightAirport {
+  iataCode: string;
+  name:     string | null;
+  city:     string | null;
+  country:  string | null;
+}
+
+export interface FlightSegment {
+  id?:            string | null;
+  aircraftModel?: string | null;
+  tailNumber?:    string | null;
+  hasWifi?:       boolean | null;
+  hasUsb?:        boolean | null;
+}
+
 export interface FlightClass {
   id:             string;
   flightId:       string;
@@ -19,19 +34,22 @@ export interface FlightClass {
 }
 
 export interface Vuelo {
-  id:                    string;
-  flightNumber:          string;
-  status:                string;
-  originAirportIata:     string;
+  id:                     string;
+  flightNumber:           string;
+  status:                 string;
+  originAirportIata:      string;
   destinationAirportIata: string;
-  departureDateTime:     string;
-  arrivalDateTime:       string;
-  duration:              number;
-  stops:                 number;
-  lowestPrice:           number;
-  airline:               FlightAirline;
-  flightClasses:         FlightClass[];
-  proveedor?:            string;
+  departureDateTime:      string;
+  arrivalDateTime:        string;
+  duration:               number;
+  stops:                  number;
+  lowestPrice:            number;
+  airline:                FlightAirline;
+  flightClasses:          FlightClass[];
+  proveedor?:             string;
+  originAirport?:         FlightAirport | null;
+  destinationAirport?:    FlightAirport | null;
+  segments?:              FlightSegment[] | null;
 }
 
 export interface VuelosApiResponse {
