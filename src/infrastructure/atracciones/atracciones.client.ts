@@ -1,5 +1,5 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
-import axios, { AxiosInstance } from 'axios';
+import axios, { type AxiosInstance } from 'axios';
 import type { IAtraccionesClient } from './i-atracciones.client';
 import type { Atraccion } from '../../interfaces/atracciones.interface';
 
@@ -14,6 +14,22 @@ export class AtraccionesClient implements IAtraccionesClient {
       timeout: 15_000,
       headers: { 'Content-Type': 'application/json' },
     });
+  }
+
+  async getAtraccionBySlug(slug: string): Promise<Atraccion | null> {
+    try {
+      const res = await this.http.get(`/attraction/${slug}`);
+      const payload: unknown = res.data?.data ?? res.data;
+      if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+        return payload as Atraccion;
+      }
+      this.logger.warn(`[TerraQuest] Respuesta inesperada para slug "${slug}"`, payload);
+      return null;
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 404) return null;
+      this.logger.error(`[TerraQuest] Error al obtener atracción por slug: ${slug}`, err);
+      throw new ServiceUnavailableException('No se pudo conectar con TerraQuest');
+    }
   }
 
   async getAtracciones(params: Record<string, unknown>): Promise<Atraccion[]> {

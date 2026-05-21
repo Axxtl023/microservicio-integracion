@@ -1,4 +1,5 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
+
 import type { IAtraccionesService, ListarAtraccionesParams } from './interfaces/i-atracciones.service';
 import type { IAtraccionesClient } from '../../infrastructure/atracciones/i-atracciones.client';
 import { IATRACCIONES_CLIENT } from '../../infrastructure/atracciones/i-atracciones.client';
@@ -56,5 +57,30 @@ export class AtraccionesService implements IAtraccionesService {
     const items      = mapped.slice((safePage - 1) * limit, safePage * limit);
 
     return { items, total, page: safePage, limit, totalPages };
+  }
+
+  async obtenerPorSlug(slug: string): Promise<Atraccion> {
+    const raw = await this.terraQuest.getAtraccionBySlug(slug);
+    if (!raw) throw new NotFoundException(`Atracción con slug "${slug}" no encontrada`);
+    return {
+      id:                  raw.id,
+      slug:                raw.slug               ?? '',
+      name:                raw.name               ?? '',
+      descriptionShort:    raw.descriptionShort   ?? null,
+      locationName:        raw.locationName        ?? null,
+      locationCountryCode: raw.locationCountryCode ?? null,
+      categoryName:        raw.categoryName        ?? null,
+      subcategoryName:     raw.subcategoryName     ?? null,
+      ratingAverage:       raw.ratingAverage       ?? null,
+      ratingCount:         raw.ratingCount         ?? null,
+      difficultyLevel:     raw.difficultyLevel     ?? null,
+      mainImageUrl:        raw.mainImageUrl        ?? null,
+      startingPrice:       raw.startingPrice       ?? 0,
+      currencyCode:        raw.currencyCode        ?? 'USD',
+      isActive:            raw.isActive            ?? true,
+      isPublished:         raw.isPublished         ?? true,
+      modalityCount:       raw.modalityCount       ?? null,
+      proveedor:           'TerraQuest',
+    };
   }
 }
