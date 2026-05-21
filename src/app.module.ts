@@ -17,6 +17,11 @@ import { IATRACCIONES_CLIENT } from './infrastructure/atracciones/i-atracciones.
 import { AtraccionesService } from './business/atracciones/atracciones.service';
 import { IATRACCIONES_SERVICE } from './business/atracciones/interfaces/i-atracciones.service';
 import { AtraccionesController } from './api/controllers/v1/AtraccionesController';
+import { HotelesClient } from './infrastructure/hoteles/hoteles.client';
+import { IHOTELES_CLIENT } from './infrastructure/hoteles/i-hoteles.client';
+import { HotelesService } from './business/hoteles/hoteles.service';
+import { IHOTELES_SERVICE } from './business/hoteles/interfaces/i-hoteles.service';
+import { HotelesController } from './api/controllers/v1/HotelesController';
 
 @Module({
   imports: [
@@ -31,7 +36,7 @@ import { AtraccionesController } from './api/controllers/v1/AtraccionesControlle
       }),
     }),
   ],
-  controllers: [ProductosController, VuelosController, AtraccionesController],
+  controllers: [ProductosController, VuelosController, AtraccionesController, HotelesController],
   providers: [
     // ── UrbanCar (proveedor original — sin cambios) ───────────────────────────
     UrbancarClient,
@@ -60,6 +65,14 @@ import { AtraccionesController } from './api/controllers/v1/AtraccionesControlle
     // ── Servicio de atracciones ───────────────────────────────────────────────
     AtraccionesService,
     { provide: IATRACCIONES_SERVICE, useExisting: AtraccionesService },
+
+    // ── Locus ─────────────────────────────────────────────────────────────────
+    HotelesClient,
+    { provide: IHOTELES_CLIENT, useExisting: HotelesClient },
+
+    // ── Servicio de hoteles ───────────────────────────────────────────────────
+    HotelesService,
+    { provide: IHOTELES_SERVICE, useExisting: HotelesService },
   ],
 })
 export class AppModule {}
