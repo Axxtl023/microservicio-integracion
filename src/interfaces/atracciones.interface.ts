@@ -2,16 +2,24 @@
 // El frontend nunca ve estos tipos directamente; recibe siempre nuestro ApiResponse estándar.
 
 export interface Atraccion {
-  id:          string;
-  nombre:      string;
-  descripcion: string | null;
-  precio:      number;
-  moneda:      string;
-  ubicacion:   string | null;
-  imagenUrl:   string | null;
-  disponible:  boolean;
-  slug:        string;
-  proveedor?:  string;
+  id:                   string;
+  slug:                 string;
+  name:                 string;
+  descriptionShort:     string | null;
+  locationName:         string | null;
+  locationCountryCode?: string | null;
+  categoryName?:        string | null;
+  subcategoryName?:     string | null;
+  ratingAverage?:       number | null;
+  ratingCount?:         number | null;
+  difficultyLevel?:     string | null;
+  mainImageUrl:         string | null;
+  startingPrice:        number;
+  currencyCode:         string;
+  isActive:             boolean;
+  isPublished?:         boolean;
+  modalityCount?:       number | null;
+  proveedor?:           string;
 }
 
 export interface AtraccionesApiResponse {

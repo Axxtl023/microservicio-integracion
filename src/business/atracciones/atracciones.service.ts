@@ -14,7 +14,7 @@ export class AtraccionesService implements IAtraccionesService {
     const page  = Math.max(1, params.page  ?? 1);
     const limit = Math.max(1, params.limit ?? 10);
 
-    const all = await this.terraQuest.getAtracciones({})
+    const all = await this.terraQuest.getAtracciones({ page: 1, pageSize: 1000 })
       .then((items) => items.map((a) => ({ ...a, proveedor: 'TerraQuest' })))
       .catch(() => []);
 

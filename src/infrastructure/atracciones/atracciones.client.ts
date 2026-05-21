@@ -20,7 +20,9 @@ export class AtraccionesClient implements IAtraccionesClient {
   async getAtracciones(params: Record<string, unknown>): Promise<Atraccion[]> {
     try {
       const res = await this.http.get<AtraccionesApiResponse>('/attraction', { params });
-      return res.data?.data ?? [];
+      console.log('[TerraQuest Backend] Respuesta cruda del proveedor:', res.data);
+      const raw = res.data?.data || (res.data as unknown as Atraccion[]) || [];
+      return Array.isArray(raw) ? raw : [];
     } catch (err) {
       this.logger.error('Error al obtener atracciones de TerraQuest', err);
       throw new ServiceUnavailableException('No se pudo conectar con TerraQuest');
