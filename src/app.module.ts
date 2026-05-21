@@ -12,6 +12,11 @@ import { IVUELOS_CLIENT } from './infrastructure/vuelos/i-vuelos.client';
 import { VuelosService } from './business/vuelos/vuelos.service';
 import { IVUELOS_SERVICE } from './business/vuelos/interfaces/i-vuelos.service';
 import { VuelosController } from './api/controllers/v1/VuelosController';
+import { AtraccionesClient } from './infrastructure/atracciones/atracciones.client';
+import { IATRACCIONES_CLIENT } from './infrastructure/atracciones/i-atracciones.client';
+import { AtraccionesService } from './business/atracciones/atracciones.service';
+import { IATRACCIONES_SERVICE } from './business/atracciones/interfaces/i-atracciones.service';
+import { AtraccionesController } from './api/controllers/v1/AtraccionesController';
 
 @Module({
   imports: [
@@ -26,7 +31,7 @@ import { VuelosController } from './api/controllers/v1/VuelosController';
       }),
     }),
   ],
-  controllers: [ProductosController, VuelosController],
+  controllers: [ProductosController, VuelosController, AtraccionesController],
   providers: [
     // ── UrbanCar (proveedor original — sin cambios) ───────────────────────────
     UrbancarClient,
@@ -47,6 +52,14 @@ import { VuelosController } from './api/controllers/v1/VuelosController';
     // ── Servicio de vuelos ────────────────────────────────────────────────────
     VuelosService,
     { provide: IVUELOS_SERVICE, useExisting: VuelosService },
+
+    // ── TerraQuest ────────────────────────────────────────────────────────────
+    AtraccionesClient,
+    { provide: IATRACCIONES_CLIENT, useExisting: AtraccionesClient },
+
+    // ── Servicio de atracciones ───────────────────────────────────────────────
+    AtraccionesService,
+    { provide: IATRACCIONES_SERVICE, useExisting: AtraccionesService },
   ],
 })
 export class AppModule {}
