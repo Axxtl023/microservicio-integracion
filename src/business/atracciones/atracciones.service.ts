@@ -94,7 +94,7 @@ export class AtraccionesService implements IAtraccionesService {
     const tqRaw   = tqResult.status   === 'fulfilled' ? tqResult.value   : null;
     const catsRaw = catsResult.status === 'fulfilled' ? catsResult.value : null;
 
-    if (tqRaw) {
+    if (tqRaw && tqRaw.id) {
       return {
         id:                  tqRaw.id,
         slug:                tqRaw.slug               ?? '',
