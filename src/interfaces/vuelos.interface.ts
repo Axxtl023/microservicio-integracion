@@ -33,6 +33,13 @@ export interface FlightClass {
   classType:      string;
 }
 
+export interface AeroWillyFlightClass {
+  flightClassId?:  string;
+  cabinClass?:     string;
+  availableSeats?: number;
+  basePrice?:      number;
+}
+
 export interface Vuelo {
   id:                     string;
   flightNumber:           string;
@@ -50,6 +57,12 @@ export interface Vuelo {
   originAirport?:         FlightAirport | null;
   destinationAirport?:    FlightAirport | null;
   segments?:              FlightSegment[] | null;
+  // AeroWilly pass-through fields
+  flightId?:              string;
+  origin?:                string;
+  destination?:           string;
+  aircraft?:              string | null;
+  classes?:               AeroWillyFlightClass[];
 }
 
 export interface VuelosApiResponse {

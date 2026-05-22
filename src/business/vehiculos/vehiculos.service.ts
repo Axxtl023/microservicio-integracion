@@ -4,13 +4,16 @@ import type { IUrbancarClient } from '../../infrastructure/urbancar/i-urbancar.c
 import { IURBANCAR_CLIENT } from '../../infrastructure/urbancar/i-urbancar.client';
 import type { IRentcarClient } from '../../infrastructure/rentcar/i-rentcar.client';
 import { IRENTCAR_CLIENT } from '../../infrastructure/rentcar/i-rentcar.client';
+import type { IRentWheelsClient } from '../../infrastructure/rentwheels/i-rentwheels.client';
+import { IRENTWHEELS_CLIENT } from '../../infrastructure/rentwheels/i-rentwheels.client';
 import type { Vehiculo, PaginatedVehiculos, Disponibilidad } from '../../interfaces/urbancar.interface';
 
 @Injectable()
 export class VehiculosService implements IVehiculosService {
   constructor(
-    @Inject(IURBANCAR_CLIENT) private readonly urbancar: IUrbancarClient,
-    @Inject(IRENTCAR_CLIENT)  private readonly rentcar:  IRentcarClient,
+    @Inject(IURBANCAR_CLIENT)   private readonly urbancar:    IUrbancarClient,
+    @Inject(IRENTCAR_CLIENT)    private readonly rentcar:     IRentcarClient,
+    @Inject(IRENTWHEELS_CLIENT) private readonly rentwheels:  IRentWheelsClient,
   ) {}
 
   async listar(params: ListarVehiculosParams): Promise<PaginatedVehiculos> {
@@ -25,9 +28,10 @@ export class VehiculosService implements IVehiculosService {
     if (params.categoriaId) providerParams.categoriaId = params.categoriaId;
     if (params.status)      providerParams.status      = params.status;
 
-    const [urbanResult, rentcarResult] = await Promise.allSettled([
+    const [urbanResult, rentcarResult, rentwheelsResult] = await Promise.allSettled([
       this.urbancar.getVehiculos(providerParams),
       this.rentcar.getVehiculos(providerParams),
+      this.rentwheels.getVehiculos(providerParams),
     ]);
 
     const urbanVehiculos = urbanResult.status === 'fulfilled'
@@ -36,8 +40,11 @@ export class VehiculosService implements IVehiculosService {
     const rentcarVehiculos = rentcarResult.status === 'fulfilled'
       ? rentcarResult.value.map(v => ({ ...v, proveedor: 'RentCar' }))
       : [];
+    const rentwheelsVehiculos = rentwheelsResult.status === 'fulfilled'
+      ? rentwheelsResult.value.map(v => ({ ...v, proveedor: 'RentWheels' }))
+      : [];
 
-    const all        = [...urbanVehiculos, ...rentcarVehiculos];
+    const all        = [...urbanVehiculos, ...rentcarVehiculos, ...rentwheelsVehiculos];
     const total      = all.length;
     const totalPages = Math.max(1, Math.ceil(total / limit));
     const safePage   = Math.min(page, totalPages);
@@ -52,6 +59,7 @@ export class VehiculosService implements IVehiculosService {
       return await Promise.any([
         this.urbancar.getVehiculoById(id),
         this.rentcar.getVehiculoById(id),
+        this.rentwheels.getVehiculoById(id),
       ]);
     } catch {
       throw new NotFoundException(`Vehículo ${id} no encontrado en ningún proveedor`);
@@ -63,6 +71,7 @@ export class VehiculosService implements IVehiculosService {
       return await Promise.any([
         this.urbancar.getDisponibilidad(id),
         this.rentcar.getDisponibilidad(id),
+        this.rentwheels.getDisponibilidad(id),
       ]);
     } catch {
       throw new NotFoundException(`Disponibilidad de ${id} no encontrada en ningún proveedor`);

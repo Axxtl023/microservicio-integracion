@@ -4,6 +4,8 @@ import { UrbancarClient } from './infrastructure/urbancar/urbancar.client';
 import { IURBANCAR_CLIENT } from './infrastructure/urbancar/i-urbancar.client';
 import { RentcarClient } from './infrastructure/rentcar/rentcar.client';
 import { IRENTCAR_CLIENT } from './infrastructure/rentcar/i-rentcar.client';
+import { RentWheelsClient } from './infrastructure/rentwheels/rentwheels.client';
+import { IRENTWHEELS_CLIENT } from './infrastructure/rentwheels/i-rentwheels.client';
 import { VehiculosService } from './business/vehiculos/vehiculos.service';
 import { IVEHICULOS_SERVICE } from './business/vehiculos/interfaces/i-vehiculos.service';
 import { ProductosController } from './api/controllers/v1/ProductosController';
@@ -11,6 +13,8 @@ import { VuelosClient } from './infrastructure/vuelos/vuelos.client';
 import { IVUELOS_CLIENT } from './infrastructure/vuelos/i-vuelos.client';
 import { SkybookClient } from './infrastructure/skybook/skybook.client';
 import { ISKYBOOK_CLIENT } from './infrastructure/skybook/i-skybook.client';
+import { AeroWillyClient } from './infrastructure/aerowilly/aerowilly.client';
+import { IAEROWI_LLY_CLIENT } from './infrastructure/aerowilly/i-aerowilly.client';
 import { VuelosService } from './business/vuelos/vuelos.service';
 import { IVUELOS_SERVICE } from './business/vuelos/interfaces/i-vuelos.service';
 import { VuelosController } from './api/controllers/v1/VuelosController';
@@ -48,7 +52,11 @@ import { HotelesController } from './api/controllers/v1/HotelesController';
     RentcarClient,
     { provide: IRENTCAR_CLIENT, useExisting: RentcarClient },
 
-    // ── Servicio de vehículos (agrega UrbanCar + RentCar) ────────────────────
+    // ── RentWheels ────────────────────────────────────────────────────────────
+    RentWheelsClient,
+    { provide: IRENTWHEELS_CLIENT, useExisting: RentWheelsClient },
+
+    // ── Servicio de vehículos (agrega UrbanCar + RentCar + RentWheels) ────────
     VehiculosService,
     { provide: IVEHICULOS_SERVICE, useExisting: VehiculosService },
 
@@ -60,7 +68,11 @@ import { HotelesController } from './api/controllers/v1/HotelesController';
     SkybookClient,
     { provide: ISKYBOOK_CLIENT, useExisting: SkybookClient },
 
-    // ── Servicio de vuelos (agrega VuelosApp + SkyBook) ───────────────────────
+    // ── AeroWilly ─────────────────────────────────────────────────────────────
+    AeroWillyClient,
+    { provide: IAEROWI_LLY_CLIENT, useExisting: AeroWillyClient },
+
+    // ── Servicio de vuelos (agrega VuelosApp + SkyBook + AeroWilly) ───────────
     VuelosService,
     { provide: IVUELOS_SERVICE, useExisting: VuelosService },
 
