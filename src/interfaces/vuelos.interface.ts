@@ -2,11 +2,11 @@
 // El frontend nunca ve estos tipos directamente; recibe siempre nuestro ApiResponse estándar.
 
 export interface FlightAirline {
-  id:        string;
-  iataCode:  string;
-  name:      string;
-  logoUrl:   string | null;
-  countryId: string;
+  id:         string;
+  iataCode:   string;
+  name:       string;
+  logoUrl:    string | null;
+  countryId?: string;
 }
 
 export interface FlightAirport {
@@ -36,16 +36,16 @@ export interface FlightClass {
 export interface Vuelo {
   id:                     string;
   flightNumber:           string;
-  status:                 string;
+  status?:                string | null;
   originAirportIata:      string;
   destinationAirportIata: string;
   departureDateTime:      string;
   arrivalDateTime:        string;
-  duration:               number;
-  stops:                  number;
+  duration?:              number;
+  stops?:                 number;
   lowestPrice:            number;
   airline:                FlightAirline;
-  flightClasses:          FlightClass[];
+  flightClasses?:         FlightClass[];
   proveedor?:             string;
   originAirport?:         FlightAirport | null;
   destinationAirport?:    FlightAirport | null;

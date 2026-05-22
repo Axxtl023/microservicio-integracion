@@ -9,6 +9,8 @@ import { IVEHICULOS_SERVICE } from './business/vehiculos/interfaces/i-vehiculos.
 import { ProductosController } from './api/controllers/v1/ProductosController';
 import { VuelosClient } from './infrastructure/vuelos/vuelos.client';
 import { IVUELOS_CLIENT } from './infrastructure/vuelos/i-vuelos.client';
+import { SkybookClient } from './infrastructure/skybook/skybook.client';
+import { ISKYBOOK_CLIENT } from './infrastructure/skybook/i-skybook.client';
 import { VuelosService } from './business/vuelos/vuelos.service';
 import { IVUELOS_SERVICE } from './business/vuelos/interfaces/i-vuelos.service';
 import { VuelosController } from './api/controllers/v1/VuelosController';
@@ -54,7 +56,11 @@ import { HotelesController } from './api/controllers/v1/HotelesController';
     VuelosClient,
     { provide: IVUELOS_CLIENT, useExisting: VuelosClient },
 
-    // ── Servicio de vuelos ────────────────────────────────────────────────────
+    // ── SkyBook ───────────────────────────────────────────────────────────────
+    SkybookClient,
+    { provide: ISKYBOOK_CLIENT, useExisting: SkybookClient },
+
+    // ── Servicio de vuelos (agrega VuelosApp + SkyBook) ───────────────────────
     VuelosService,
     { provide: IVUELOS_SERVICE, useExisting: VuelosService },
 
