@@ -20,6 +20,8 @@ import { IVUELOS_SERVICE } from './business/vuelos/interfaces/i-vuelos.service';
 import { VuelosController } from './api/controllers/v1/VuelosController';
 import { AtraccionesClient } from './infrastructure/atracciones/atracciones.client';
 import { IATRACCIONES_CLIENT } from './infrastructure/atracciones/i-atracciones.client';
+import { AtraccionCaTsClient } from './infrastructure/atraccioncats/atraccioncats.client';
+import { IATRACCIONCATS_CLIENT } from './infrastructure/atraccioncats/i-atraccioncats.client';
 import { AtraccionesService } from './business/atracciones/atracciones.service';
 import { IATRACCIONES_SERVICE } from './business/atracciones/interfaces/i-atracciones.service';
 import { AtraccionesController } from './api/controllers/v1/AtraccionesController';
@@ -80,7 +82,11 @@ import { HotelesController } from './api/controllers/v1/HotelesController';
     AtraccionesClient,
     { provide: IATRACCIONES_CLIENT, useExisting: AtraccionesClient },
 
-    // ── Servicio de atracciones ───────────────────────────────────────────────
+    // ── AtraccionCaTs ─────────────────────────────────────────────────────────
+    AtraccionCaTsClient,
+    { provide: IATRACCIONCATS_CLIENT, useExisting: AtraccionCaTsClient },
+
+    // ── Servicio de atracciones (agrega TerraQuest + AtraccionCaTs) ───────────
     AtraccionesService,
     { provide: IATRACCIONES_SERVICE, useExisting: AtraccionesService },
 
