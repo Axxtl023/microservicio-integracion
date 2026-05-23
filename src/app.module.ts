@@ -25,6 +25,8 @@ import { IATRACCIONCATS_CLIENT } from './infrastructure/atraccioncats/i-atraccio
 import { AtraccionesService } from './business/atracciones/atracciones.service';
 import { IATRACCIONES_SERVICE } from './business/atracciones/interfaces/i-atracciones.service';
 import { AtraccionesController } from './api/controllers/v1/AtraccionesController';
+import { DriveXClient } from './infrastructure/drivex/drivex.client';
+import { IDRIVEX_CLIENT } from './infrastructure/drivex/i-drivex.client';
 import { HotelesClient } from './infrastructure/hoteles/hoteles.client';
 import { IHOTELES_CLIENT } from './infrastructure/hoteles/i-hoteles.client';
 import { HomiyaClient } from './infrastructure/homiya/homiya.client';
@@ -60,7 +62,11 @@ import { HotelesController } from './api/controllers/v1/HotelesController';
     RentWheelsClient,
     { provide: IRENTWHEELS_CLIENT, useExisting: RentWheelsClient },
 
-    // ── Servicio de vehículos (agrega UrbanCar + RentCar + RentWheels) ────────
+    // ── DriveX ────────────────────────────────────────────────────────────────
+    DriveXClient,
+    { provide: IDRIVEX_CLIENT, useExisting: DriveXClient },
+
+    // ── Servicio de vehículos (agrega UrbanCar + RentCar + RentWheels + DriveX) ─
     VehiculosService,
     { provide: IVEHICULOS_SERVICE, useExisting: VehiculosService },
 
