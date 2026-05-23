@@ -24,6 +24,8 @@ import { AtraccionCaTsClient } from './infrastructure/atraccioncats/atraccioncat
 import { IATRACCIONCATS_CLIENT } from './infrastructure/atraccioncats/i-atraccioncats.client';
 import { VenturoClient } from './infrastructure/venturo/venturo.client';
 import { IVENTURO_CLIENT } from './infrastructure/venturo/i-venturo.client';
+import { NextStopClient } from './infrastructure/nextstop/nextstop.client';
+import { INEXTSTOP_CLIENT } from './infrastructure/nextstop/i-nextstop.client';
 import { AtraccionesService } from './business/atracciones/atracciones.service';
 import { IATRACCIONES_SERVICE } from './business/atracciones/interfaces/i-atracciones.service';
 import { AtraccionesController } from './api/controllers/v1/AtraccionesController';
@@ -100,7 +102,11 @@ import { HotelesController } from './api/controllers/v1/HotelesController';
     VenturoClient,
     { provide: IVENTURO_CLIENT, useExisting: VenturoClient },
 
-    // ── Servicio de atracciones (agrega TerraQuest + AtraccionCaTs + Venturo) ─
+    // ── NextStop ──────────────────────────────────────────────────────────────
+    NextStopClient,
+    { provide: INEXTSTOP_CLIENT, useExisting: NextStopClient },
+
+    // ── Servicio de atracciones (TerraQuest + AtraccionCaTs + Venturo + NextStop) ─
     AtraccionesService,
     { provide: IATRACCIONES_SERVICE, useExisting: AtraccionesService },
 
