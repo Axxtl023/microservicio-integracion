@@ -1,7 +1,7 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import axios, { type AxiosInstance } from 'axios';
 import type { IHotelesClient } from './i-hoteles.client';
-import type { Hotel } from '../../interfaces/hoteles.interface';
+import type { Hotel, Habitacion } from '../../interfaces/hoteles.interface';
 
 @Injectable()
 export class HotelesClient implements IHotelesClient {
@@ -49,6 +49,25 @@ export class HotelesClient implements IHotelesClient {
       if (axios.isAxiosError(err) && err.response?.status === 404) return null;
       this.logger.error(`[Locus] Error al obtener hotel id=${id}`, err);
       throw new ServiceUnavailableException('No se pudo conectar con Locus');
+    }
+  }
+
+  async getHabitacionesPorAlojamiento(id: number): Promise<Habitacion[]> {
+    try {
+      const res = await this.http.get(`/api/v1/israel-hernandez/alojamientos/${id}/habitaciones`);
+      const payload: unknown = res.data?.data ?? res.data ?? [];
+
+      if (Array.isArray(payload)) {
+        this.logger.log(`[Locus] ${payload.length} habitaciones para alojamiento id=${id}`);
+        return payload as Habitacion[];
+      }
+
+      this.logger.warn(`[Locus] Estructura inesperada en habitaciones para id=${id}`, payload);
+      return [];
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 404) return [];
+      this.logger.error(`[Locus] Error al obtener habitaciones para id=${id}`, err);
+      return [];
     }
   }
 }

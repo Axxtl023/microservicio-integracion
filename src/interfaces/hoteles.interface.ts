@@ -10,22 +10,31 @@ export interface Habitacion {
   precioNoche:      number;
 }
 
+// Contrato unificado que el microservicio despacha al frontend — independiente del proveedor.
+export interface HabitacionUnificada {
+  id:             string;
+  nombre:         string;
+  precioNoche:    number;
+  capacidadTotal: number;
+  disponible:     boolean;
+}
+
 export interface Hotel {
-  alojamientoId:       number;
-  nombre:              string;
-  ciudad:              string;
-  direccion:           string;
-  descripcion:         string | null;
-  estrellas:           number | null;
+  alojamientoId:        number;
+  nombre:               string;
+  ciudad:               string;
+  direccion:            string;
+  descripcion:          string | null;
+  estrellas:            number | null;
   calificacionPromedio: number;
-  admiteMascotas:      boolean;
-  tienePiscina:        boolean;
-  tieneParqueadero:    boolean;
-  // Campos adicionales — Rodrigo's
-  precioBase?:         number;
-  telefono?:           string;
-  habitaciones?:       Habitacion[];
-  proveedor?:          string;
+  admiteMascotas:       boolean;
+  tienePiscina:         boolean;
+  tieneParqueadero:     boolean;
+  // Campos adicionales
+  precioBase?:          number;
+  telefono?:            string;
+  habitaciones?:        HabitacionUnificada[];
+  proveedor?:           string;
 }
 
 export interface PaginatedHoteles {

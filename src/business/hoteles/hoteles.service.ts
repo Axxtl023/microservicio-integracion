@@ -7,7 +7,7 @@ import type { IHomiyaClient } from '../../infrastructure/homiya/i-homiya.client'
 import { IHOMIYA_CLIENT } from '../../infrastructure/homiya/i-homiya.client';
 import type { IRodrigosClient } from '../../infrastructure/rodrigos/i-rodrigos.client';
 import { IRODRIGOS_CLIENT } from '../../infrastructure/rodrigos/i-rodrigos.client';
-import type { Hotel, Habitacion, PaginatedHoteles } from '../../interfaces/hoteles.interface';
+import type { Hotel, Habitacion, HabitacionUnificada, PaginatedHoteles } from '../../interfaces/hoteles.interface';
 
 @Injectable()
 export class HotelesService implements IHotelesService {
@@ -18,6 +18,16 @@ export class HotelesService implements IHotelesService {
     @Inject(IHOMIYA_CLIENT)   private readonly homiya:   IHomiyaClient,
     @Inject(IRODRIGOS_CLIENT) private readonly rodrigos: IRodrigosClient,
   ) {}
+
+  private normalizarHabitaciones(raws: Habitacion[]): HabitacionUnificada[] {
+    return raws.map((r) => ({
+      id:             String(r.habitacionId),
+      nombre:         r.nombre          ?? 'Habitación',
+      precioNoche:    r.precioNoche     ?? 0,
+      capacidadTotal: (r.capacidadAdultos ?? 0) + (r.capacidadNinos ?? 0),
+      disponible:     true,
+    }));
+  }
 
   private mapHotel(h: Hotel, proveedor: string): Hotel {
     return {
@@ -52,12 +62,43 @@ export class HotelesService implements IHotelesService {
     if (homiyaResult.status   === 'rejected') this.logger.error('[Homiya] Error al obtener hoteles',    homiyaResult.reason);
     if (rodrigosResult.status === 'rejected') this.logger.error("[Rodrigo's] Error al obtener hoteles", rodrigosResult.reason);
 
-    const locusItems:    Hotel[] = locusResult.status    === 'fulfilled' ? locusResult.value.map((h)    => this.mapHotel(h, 'Locus'))     : [];
-    const homiyaItems:   Hotel[] = homiyaResult.status   === 'fulfilled' ? homiyaResult.value.map((h)   => this.mapHotel(h, 'Homiya'))    : [];
-    // Rodrigo's no incluye precioBase en el catálogo — fallback 40 para que la tarjeta no muestre NaN
-    const rodrigosItems: Hotel[] = rodrigosResult.status === 'fulfilled'
-      ? rodrigosResult.value.map((h) => this.mapHotel({ ...h, precioBase: h.precioBase ?? 40 }, "Rodrigo's"))
-      : [];
+    const locusRaw    = locusResult.status    === 'fulfilled' ? locusResult.value : [];
+    const homiyaRaw   = homiyaResult.status   === 'fulfilled' ? homiyaResult.value : [];
+    const rodrigosRaw = rodrigosResult.status === 'fulfilled' ? rodrigosResult.value : [];
+
+    const [locusItems, rodrigosItems] = await Promise.all([
+      Promise.all(
+        locusRaw.map(async (h) => {
+          const habs       = await this.locus.getHabitacionesPorAlojamiento(h.alojamientoId);
+          const unificadas = this.normalizarHabitaciones(habs);
+          const precioBase = unificadas.length > 0
+            ? Math.min(...unificadas.map((u) => u.precioNoche))
+            : 40;
+          return this.mapHotel({ ...h, precioBase }, 'Locus');
+        }),
+      ),
+      Promise.all(
+        rodrigosRaw.map(async (h) => {
+          const habs       = await this.rodrigos.getHabitacionesPorAlojamiento(h.alojamientoId);
+          const unificadas = this.normalizarHabitaciones(habs);
+          const precioBase = unificadas.length > 0
+            ? Math.min(...unificadas.map((u) => u.precioNoche))
+            : 40;
+          return this.mapHotel({ ...h, precioBase }, "Rodrigo's");
+        }),
+      ),
+    ]);
+
+    const homiyaItems: Hotel[] = await Promise.all(
+      homiyaRaw.map(async (h) => {
+        const habs       = await this.homiya.getHabitacionesPorAlojamiento(h.alojamientoId);
+        const unificadas = this.normalizarHabitaciones(habs);
+        const precioBase = unificadas.length > 0
+          ? Math.min(...unificadas.map((u) => u.precioNoche))
+          : (h.precioBase ?? 40);
+        return this.mapHotel({ ...h, precioBase }, 'Homiya');
+      }),
+    );
 
     this.logger.log(`[Locus] ${locusItems.length} | [Homiya] ${homiyaItems.length} | [Rodrigo's] ${rodrigosItems.length} hoteles`);
 
@@ -82,17 +123,28 @@ export class HotelesService implements IHotelesService {
     const rodrigosRaw = rodrigosResult.status === 'fulfilled' ? rodrigosResult.value : null;
 
     if (locusRaw && locusRaw.alojamientoId) {
-      return this.mapHotel(locusRaw, 'Locus');
+      const habitacionesRaw = await this.locus.getHabitacionesPorAlojamiento(locusRaw.alojamientoId);
+      const habitaciones    = this.normalizarHabitaciones(habitacionesRaw);
+      const precioBase      = habitaciones.length > 0
+        ? Math.min(...habitaciones.map((h) => h.precioNoche))
+        : (locusRaw.precioBase ?? 40);
+      return this.mapHotel({ ...locusRaw, precioBase, habitaciones }, 'Locus');
     }
 
     if (homiyaRaw && homiyaRaw.alojamientoId) {
-      return this.mapHotel(homiyaRaw, 'Homiya');
+      const habitacionesRaw = await this.homiya.getHabitacionesPorAlojamiento(homiyaRaw.alojamientoId);
+      const habitaciones    = this.normalizarHabitaciones(habitacionesRaw);
+      const precioBase      = habitaciones.length > 0
+        ? Math.min(...habitaciones.map((h) => h.precioNoche))
+        : (homiyaRaw.precioBase ?? 40);
+      return this.mapHotel({ ...homiyaRaw, precioBase, habitaciones }, 'Homiya');
     }
 
     if (rodrigosRaw && rodrigosRaw.alojamientoId) {
-      const habitaciones: Habitacion[] = await this.rodrigos.getHabitacionesPorAlojamiento(rodrigosRaw.alojamientoId);
-      const precioBase = habitaciones.length > 0
-        ? Math.min(...habitaciones.map((hab) => hab.precioNoche ?? 40))
+      const habitacionesRaw = await this.rodrigos.getHabitacionesPorAlojamiento(rodrigosRaw.alojamientoId);
+      const habitaciones    = this.normalizarHabitaciones(habitacionesRaw);
+      const precioBase      = habitaciones.length > 0
+        ? Math.min(...habitaciones.map((h) => h.precioNoche))
         : (rodrigosRaw.precioBase ?? 40);
       return this.mapHotel({ ...rodrigosRaw, precioBase, habitaciones }, "Rodrigo's");
     }
