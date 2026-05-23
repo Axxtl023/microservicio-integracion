@@ -78,21 +78,32 @@ export class VehiculosService implements IVehiculosService {
   }
 
   async obtenerDisponibilidad(id: string): Promise<Disponibilidad> {
-    try {
-      const raw = await Promise.any([
-        this.urbancar.getDisponibilidad(id),
-        this.rentcar.getDisponibilidad(id),
-        this.rentwheels.getDisponibilidad(id),
-        this.drivex.getDisponibilidad(id),
-      ]);
-      // Normalización booleana estricta — evita que un string o null de otro proveedor
-      // gane la carrera y pinte incorrectamente "No disponible".
-      return {
-        ...raw,
-        disponible: raw.disponible === true || (raw.disponible as unknown as string) === 'true',
-      };
-    } catch {
+    const results = await Promise.allSettled([
+      this.urbancar.getDisponibilidad(id),
+      this.rentcar.getDisponibilidad(id),
+      this.rentwheels.getDisponibilidad(id),
+      this.drivex.getDisponibilidad(id),
+    ]);
+
+    const fulfilled = results.filter(
+      (r): r is PromiseFulfilledResult<Disponibilidad> => r.status === 'fulfilled',
+    );
+
+    if (fulfilled.length === 0) {
       throw new NotFoundException(`Disponibilidad de ${id} no encontrada en ningún proveedor`);
     }
+
+    const normDisp = (v: Disponibilidad): boolean =>
+      v.disponible === true || (v.disponible as unknown as string) === 'true';
+
+    // Un proveedor ajeno puede responder 200 con disponible:false para un ID que no le pertenece.
+    // Con Promise.any ese falso negativo ganaría la carrera. Con allSettled + "true wins",
+    // el proveedor propietario (que devuelve true) siempre tiene prioridad.
+    const winner = fulfilled.find(r => normDisp(r.value)) ?? fulfilled[0];
+
+    return {
+      ...winner.value,
+      disponible: normDisp(winner.value),
+    };
   }
 }
