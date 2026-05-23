@@ -5,6 +5,8 @@ import type { IAtraccionesClient } from '../../infrastructure/atracciones/i-atra
 import { IATRACCIONES_CLIENT } from '../../infrastructure/atracciones/i-atracciones.client';
 import type { IAtraccionCaTsClient } from '../../infrastructure/atraccioncats/i-atraccioncats.client';
 import { IATRACCIONCATS_CLIENT } from '../../infrastructure/atraccioncats/i-atraccioncats.client';
+import type { IVenturoClient } from '../../infrastructure/venturo/i-venturo.client';
+import { IVENTURO_CLIENT } from '../../infrastructure/venturo/i-venturo.client';
 import type { Atraccion, PaginatedAtracciones } from '../../interfaces/atracciones.interface';
 
 @Injectable()
@@ -14,19 +16,22 @@ export class AtraccionesService implements IAtraccionesService {
   constructor(
     @Inject(IATRACCIONES_CLIENT)    private readonly terraQuest:    IAtraccionesClient,
     @Inject(IATRACCIONCATS_CLIENT)  private readonly atraccionCaTs: IAtraccionCaTsClient,
+    @Inject(IVENTURO_CLIENT)        private readonly venturo:        IVenturoClient,
   ) {}
 
   async listar(params: ListarAtraccionesParams): Promise<PaginatedAtracciones> {
     const page  = Math.max(1, params.page  ?? 1);
     const limit = Math.max(1, params.limit ?? 10);
 
-    const [tqResult, catsResult] = await Promise.allSettled([
+    const [tqResult, catsResult, venturoResult] = await Promise.allSettled([
       this.terraQuest.getAtracciones({ page: 1, pageSize: 1000 }),
       this.atraccionCaTs.getAtracciones({}),
+      this.venturo.getAtracciones({}),
     ]);
 
-    if (tqResult.status   === 'rejected') this.logger.error('[TerraQuest] Error al obtener atracciones', tqResult.reason);
-    if (catsResult.status === 'rejected') this.logger.error('[AtraccionCaTs] Error al obtener atracciones', catsResult.reason);
+    if (tqResult.status      === 'rejected') this.logger.error('[TerraQuest] Error al obtener atracciones',    tqResult.reason);
+    if (catsResult.status    === 'rejected') this.logger.error('[AtraccionCaTs] Error al obtener atracciones', catsResult.reason);
+    if (venturoResult.status === 'rejected') this.logger.error('[Venturo] Error al obtener atracciones',       venturoResult.reason);
 
     const tqItems: Atraccion[] = tqResult.status === 'fulfilled'
       ? tqResult.value.map((a) => ({
@@ -74,9 +79,34 @@ export class AtraccionesService implements IAtraccionesService {
         }))
       : [];
 
-    this.logger.log(`[TerraQuest] ${tqItems.length} | [AtraccionCaTs] ${catsItems.length} atracciones`);
+    const venturoItems: Atraccion[] = venturoResult.status === 'fulfilled'
+      ? venturoResult.value.map((a) => ({
+          id:                  a.id,
+          slug:                a.slug               ?? '',
+          name:                a.name               ?? '',
+          descriptionShort:    a.descriptionShort   ?? null,
+          locationName:        a.locationName        ?? null,
+          locationCountryCode: a.locationCountryCode ?? null,
+          categoryName:        a.categoryName        ?? null,
+          subcategoryName:     a.subcategoryName     ?? null,
+          ratingAverage:       a.ratingAverage       ?? null,
+          ratingCount:         a.ratingCount         ?? null,
+          difficultyLevel:     a.difficultyLevel     ?? null,
+          mainImageUrl:        a.mainImageUrl        ?? null,
+          startingPrice:       a.startingPrice       ?? 0,
+          currencyCode:        a.currencyCode        ?? 'USD',
+          isActive:            a.isActive            ?? true,
+          isPublished:         a.isPublished         ?? true,
+          modalityCount:       a.modalityCount       ?? null,
+          proveedor:           'Venturo',
+        }))
+      : [];
 
-    const all        = [...tqItems, ...catsItems];
+    this.logger.log(
+      `[TerraQuest] ${tqItems.length} | [AtraccionCaTs] ${catsItems.length} | [Venturo] ${venturoItems.length} atracciones`,
+    );
+
+    const all        = [...tqItems, ...catsItems, ...venturoItems];
     const total      = all.length;
     const totalPages = Math.max(1, Math.ceil(total / limit));
     const safePage   = Math.min(page, totalPages);
@@ -86,13 +116,15 @@ export class AtraccionesService implements IAtraccionesService {
   }
 
   async obtenerPorSlug(slug: string): Promise<Atraccion> {
-    const [tqResult, catsResult] = await Promise.allSettled([
+    const [tqResult, catsResult, venturoResult] = await Promise.allSettled([
       this.terraQuest.getAtraccionBySlug(slug),
       this.atraccionCaTs.getAtraccionBySlug(slug),
+      this.venturo.getAtraccionBySlug(slug),
     ]);
 
-    const tqRaw   = tqResult.status   === 'fulfilled' ? tqResult.value   : null;
-    const catsRaw = catsResult.status === 'fulfilled' ? catsResult.value : null;
+    const tqRaw      = tqResult.status      === 'fulfilled' ? tqResult.value      : null;
+    const catsRaw    = catsResult.status    === 'fulfilled' ? catsResult.value    : null;
+    const venturoRaw = venturoResult.status === 'fulfilled' ? venturoResult.value : null;
 
     if (tqRaw && tqRaw.id) {
       return {
@@ -122,7 +154,7 @@ export class AtraccionesService implements IAtraccionesService {
       };
     }
 
-    if (catsRaw) {
+    if (catsRaw && catsRaw.id) {
       return {
         id:               catsRaw.id,
         slug:             catsRaw.slug             ?? '',
@@ -139,6 +171,30 @@ export class AtraccionesService implements IAtraccionesService {
         isPublished:      catsRaw.isPublished      ?? true,
         modalityCount:    catsRaw.modalityCount    ?? null,
         proveedor:        'AtraccionCaTs',
+      };
+    }
+
+    if (venturoRaw && venturoRaw.id) {
+      return {
+        id:                  venturoRaw.id,
+        slug:                venturoRaw.slug               ?? '',
+        name:                venturoRaw.name               ?? '',
+        descriptionShort:    venturoRaw.descriptionShort   ?? null,
+        descriptionFull:     venturoRaw.descriptionFull    ?? null,
+        locationName:        venturoRaw.locationName        ?? null,
+        locationCountryCode: venturoRaw.locationCountryCode ?? null,
+        categoryName:        venturoRaw.categoryName        ?? null,
+        ratingAverage:       venturoRaw.ratingAverage       ?? null,
+        ratingCount:         venturoRaw.ratingCount         ?? null,
+        mainImageUrl:        venturoRaw.mainImageUrl        ?? null,
+        gallery:             venturoRaw.gallery             ?? [],
+        products:            venturoRaw.products            ?? [],
+        startingPrice:       venturoRaw.startingPrice       ?? 0,
+        currencyCode:        venturoRaw.currencyCode        ?? 'USD',
+        isActive:            venturoRaw.isActive            ?? true,
+        isPublished:         venturoRaw.isPublished         ?? true,
+        modalityCount:       venturoRaw.modalityCount       ?? null,
+        proveedor:           'Venturo',
       };
     }
 
