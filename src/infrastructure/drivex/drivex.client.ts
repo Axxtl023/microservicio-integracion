@@ -54,9 +54,18 @@ export class DriveXClient implements IDriveXClient {
       const res = await this.http.get(`/vehiculos/${id}/disponibilidad`, {
         params: { fechaInicio: hoy, fechaFin: manana },
       });
-      const data: Disponibilidad | null = res.data?.data ?? null;
-      if (!data) throw new NotFoundException(`Disponibilidad de ${id} no encontrada en DriveX`);
-      return data;
+      const raw = res.data?.data;
+      if (!raw || typeof raw !== 'object') {
+        throw new NotFoundException(`Disponibilidad de ${id} no encontrada en DriveX`);
+      }
+      const r = raw as Record<string, unknown>;
+      // Normalización booleana estricta — DriveX retorna { vehiculoId, disponible, fechaInicio, fechaFin }
+      return {
+        vehiculoId: String(r.vehiculoId ?? id),
+        disponible: r.disponible === true || r.disponible === 'true',
+        status:     (r.status  as string | null) ?? null,
+        mensaje:    (r.mensaje as string | null) ?? null,
+      };
     } catch (err) {
       if (err instanceof NotFoundException) throw err;
       if ((err as any)?.response?.status === 404) {

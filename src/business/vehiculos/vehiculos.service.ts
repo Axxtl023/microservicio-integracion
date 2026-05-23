@@ -38,17 +38,20 @@ export class VehiculosService implements IVehiculosService {
       this.drivex.getVehiculos(providerParams),
     ]);
 
+    const norm = (v: Vehiculo): boolean =>
+      v.disponible === true || (v.disponible as unknown as string) === 'true';
+
     const urbanVehiculos = urbanResult.status === 'fulfilled'
-      ? urbanResult.value.map(v => ({ ...v, proveedor: 'UrbanCar' }))
+      ? urbanResult.value.map(v => ({ ...v, proveedor: 'UrbanCar',    disponible: norm(v) }))
       : [];
     const rentcarVehiculos = rentcarResult.status === 'fulfilled'
-      ? rentcarResult.value.map(v => ({ ...v, proveedor: 'RentCar' }))
+      ? rentcarResult.value.map(v => ({ ...v, proveedor: 'RentCar',   disponible: norm(v) }))
       : [];
     const rentwheelsVehiculos = rentwheelsResult.status === 'fulfilled'
-      ? rentwheelsResult.value.map(v => ({ ...v, proveedor: 'RentWheels' }))
+      ? rentwheelsResult.value.map(v => ({ ...v, proveedor: 'RentWheels', disponible: norm(v) }))
       : [];
     const drivexVehiculos = drivexResult.status === 'fulfilled'
-      ? drivexResult.value.map(v => ({ ...v, proveedor: 'DriveX' }))
+      ? drivexResult.value.map(v => ({ ...v, proveedor: 'DriveX',     disponible: norm(v) }))
       : [];
 
     const all        = [...urbanVehiculos, ...rentcarVehiculos, ...rentwheelsVehiculos, ...drivexVehiculos];
@@ -76,12 +79,18 @@ export class VehiculosService implements IVehiculosService {
 
   async obtenerDisponibilidad(id: string): Promise<Disponibilidad> {
     try {
-      return await Promise.any([
+      const raw = await Promise.any([
         this.urbancar.getDisponibilidad(id),
         this.rentcar.getDisponibilidad(id),
         this.rentwheels.getDisponibilidad(id),
         this.drivex.getDisponibilidad(id),
       ]);
+      // Normalización booleana estricta — evita que un string o null de otro proveedor
+      // gane la carrera y pinte incorrectamente "No disponible".
+      return {
+        ...raw,
+        disponible: raw.disponible === true || (raw.disponible as unknown as string) === 'true',
+      };
     } catch {
       throw new NotFoundException(`Disponibilidad de ${id} no encontrada en ningún proveedor`);
     }
