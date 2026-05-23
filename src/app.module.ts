@@ -27,6 +27,8 @@ import { IATRACCIONES_SERVICE } from './business/atracciones/interfaces/i-atracc
 import { AtraccionesController } from './api/controllers/v1/AtraccionesController';
 import { HotelesClient } from './infrastructure/hoteles/hoteles.client';
 import { IHOTELES_CLIENT } from './infrastructure/hoteles/i-hoteles.client';
+import { HomiyaClient } from './infrastructure/homiya/homiya.client';
+import { IHOMIYA_CLIENT } from './infrastructure/homiya/i-homiya.client';
 import { HotelesService } from './business/hoteles/hoteles.service';
 import { IHOTELES_SERVICE } from './business/hoteles/interfaces/i-hoteles.service';
 import { HotelesController } from './api/controllers/v1/HotelesController';
@@ -94,7 +96,11 @@ import { HotelesController } from './api/controllers/v1/HotelesController';
     HotelesClient,
     { provide: IHOTELES_CLIENT, useExisting: HotelesClient },
 
-    // ── Servicio de hoteles ───────────────────────────────────────────────────
+    // ── Homiya ────────────────────────────────────────────────────────────────
+    HomiyaClient,
+    { provide: IHOMIYA_CLIENT, useExisting: HomiyaClient },
+
+    // ── Servicio de hoteles (agrega Locus + Homiya) ───────────────────────────
     HotelesService,
     { provide: IHOTELES_SERVICE, useExisting: HotelesService },
   ],
