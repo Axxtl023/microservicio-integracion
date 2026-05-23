@@ -19,22 +19,26 @@ export class NextStopClient implements INextStopClient {
 
   async getAtracciones(_params: Record<string, unknown>): Promise<Atraccion[]> {
     try {
-      const res = await this.http.get('/attraction', {
-        params: { page: 1, pageSize: 1000 },
-      });
+      const res = await this.http.get('/attraction');
 
-      // NextStop envuelve la lista en: { success: true, data: { items: [...] } }
-      const items: unknown[] = res.data?.data?.items ?? res.data?.data ?? res.data ?? [];
+      // Fallback elástico de 3 niveles para cubrir variaciones del sobre
+      const items: unknown[] =
+        res.data?.data?.items ||
+        res.data?.items       ||
+        res.data?.data        ||
+        [];
 
       if (!Array.isArray(items)) {
-        this.logger.warn('[NextStop] Estructura inesperada — retornando []', items);
+        this.logger.warn('[NextStop] Estructura inesperada — retornando []', res.data);
         return [];
       }
 
       this.logger.log(`[NextStop] ${items.length} atracciones obtenidas`);
       return items as Atraccion[];
-    } catch (err) {
-      this.logger.error('[NextStop] Error de red al llamar /attraction', err);
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { status?: number; data?: unknown }; message?: string };
+      console.error('❌ [NextStop Error]:', axiosErr.response?.data || axiosErr.message);
+      this.logger.error(`[NextStop] HTTP ${axiosErr.response?.status ?? 'red'} al llamar /attraction`);
       throw new ServiceUnavailableException('No se pudo conectar con NextStop');
     }
   }
