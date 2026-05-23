@@ -1,5 +1,15 @@
 // Tipos del proveedor Locus (israel-apigateway) — uso interno del microservicio.
 
+export interface Habitacion {
+  habitacionId:     number;
+  alojamientoId:    number;
+  nombre:           string;
+  descripcion:      string | null;
+  capacidadAdultos: number;
+  capacidadNinos:   number;
+  precioNoche:      number;
+}
+
 export interface Hotel {
   alojamientoId:       number;
   nombre:              string;
@@ -11,6 +21,10 @@ export interface Hotel {
   admiteMascotas:      boolean;
   tienePiscina:        boolean;
   tieneParqueadero:    boolean;
+  // Campos adicionales — Rodrigo's
+  precioBase?:         number;
+  telefono?:           string;
+  habitaciones?:       Habitacion[];
   proveedor?:          string;
 }
 
