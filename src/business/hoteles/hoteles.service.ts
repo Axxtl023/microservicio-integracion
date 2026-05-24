@@ -82,12 +82,21 @@ export class HotelesService implements IHotelesService {
     if (rodrigosResult.status     === 'rejected') this.logger.error("[Rodrigo's] Error al obtener hoteles",    rodrigosResult.reason);
     if (housingPlaceResult.status === 'rejected') this.logger.error('[HousingPlace] Error al obtener hoteles', housingPlaceResult.reason);
 
-    const locusRaw        = locusResult.status        === 'fulfilled' ? locusResult.value        : [];
-    const homiyaRaw       = homiyaResult.status       === 'fulfilled' ? homiyaResult.value       : [];
-    const rodrigosRaw     = rodrigosResult.status     === 'fulfilled' ? rodrigosResult.value     : [];
-    const housingPlaceRaw = housingPlaceResult.status === 'fulfilled' ? housingPlaceResult.value : [];
+    const locusRaw    = locusResult.status    === 'fulfilled' ? locusResult.value    : [];
+    const homiyaRaw   = homiyaResult.status   === 'fulfilled' ? homiyaResult.value   : [];
+    const rodrigosRaw = rodrigosResult.status === 'fulfilled' ? rodrigosResult.value : [];
 
-    const [locusItems, rodrigosItems, housingPlaceItems] = await Promise.all([
+    const rawHousingValue = housingPlaceResult.status === 'fulfilled' ? housingPlaceResult.value : [];
+    const housingPlaceRaw: Record<string, unknown>[] = Array.isArray(rawHousingValue) ? rawHousingValue : [];
+
+    this.logger.log(
+      `[HousingPlace] ${housingPlaceRaw.length} ítems recibidos del cliente` +
+      (housingPlaceRaw.length > 0
+        ? ` · claves del primer ítem: [${Object.keys(housingPlaceRaw[0]).join(', ')}]`
+        : ' · array vacío'),
+    );
+
+    const [locusSettled, rodrigosSettled, housingPlaceSettled] = await Promise.allSettled([
       Promise.all(
         locusRaw.map(async (h) => {
           const habs       = await this.locus.getHabitacionesPorAlojamiento(h.alojamientoId);
@@ -120,6 +129,14 @@ export class HotelesService implements IHotelesService {
         }),
       ),
     ]);
+
+    if (locusSettled.status        === 'rejected') this.logger.error('[Locus] Error al procesar hoteles',        locusSettled.reason);
+    if (rodrigosSettled.status     === 'rejected') this.logger.error("[Rodrigo's] Error al procesar hoteles",    rodrigosSettled.reason);
+    if (housingPlaceSettled.status === 'rejected') this.logger.error('[HousingPlace] Error al procesar hoteles', housingPlaceSettled.reason);
+
+    const locusItems        = locusSettled.status        === 'fulfilled' ? locusSettled.value        : [];
+    const rodrigosItems     = rodrigosSettled.status     === 'fulfilled' ? rodrigosSettled.value     : [];
+    const housingPlaceItems = housingPlaceSettled.status === 'fulfilled' ? housingPlaceSettled.value : [];
 
     const homiyaItems: Hotel[] = await Promise.all(
       homiyaRaw.map(async (h) => {
