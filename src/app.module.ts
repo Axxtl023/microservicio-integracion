@@ -41,6 +41,8 @@ import { HomiyaClient } from './infrastructure/homiya/homiya.client';
 import { IHOMIYA_CLIENT } from './infrastructure/homiya/i-homiya.client';
 import { RodrigosClient } from './infrastructure/rodrigos/rodrigos.client';
 import { IRODRIGOS_CLIENT } from './infrastructure/rodrigos/i-rodrigos.client';
+import { HousingPlaceClient } from './infrastructure/housing-place/housing-place.client';
+import { IHOUSING_PLACE_CLIENT } from './infrastructure/housing-place/i-housing-place.client';
 import { HotelesService } from './business/hoteles/hoteles.service';
 import { IHOTELES_SERVICE } from './business/hoteles/interfaces/i-hoteles.service';
 import { HotelesController } from './api/controllers/v1/HotelesController';
@@ -136,7 +138,11 @@ import { HotelesController } from './api/controllers/v1/HotelesController';
     RodrigosClient,
     { provide: IRODRIGOS_CLIENT, useExisting: RodrigosClient },
 
-    // ── Servicio de hoteles (agrega Locus + Homiya + Rodrigo's) ───────────────
+    // ── HousingPlace ──────────────────────────────────────────────────────────
+    HousingPlaceClient,
+    { provide: IHOUSING_PLACE_CLIENT, useExisting: HousingPlaceClient },
+
+    // ── Servicio de hoteles (agrega Locus + Homiya + Rodrigo's + HousingPlace) ─
     HotelesService,
     { provide: IHOTELES_SERVICE, useExisting: HotelesService },
   ],
