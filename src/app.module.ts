@@ -31,6 +31,8 @@ import { IATRACCIONES_SERVICE } from './business/atracciones/interfaces/i-atracc
 import { AtraccionesController } from './api/controllers/v1/AtraccionesController';
 import { DriveXClient } from './infrastructure/drivex/drivex.client';
 import { IDRIVEX_CLIENT } from './infrastructure/drivex/i-drivex.client';
+import { ZenithDriveClient } from './infrastructure/zenith-drive/zenith-drive.client';
+import { IZENITH_DRIVE_CLIENT } from './infrastructure/zenith-drive/i-zenith-drive.client';
 import { HotelesClient } from './infrastructure/hoteles/hoteles.client';
 import { IHOTELES_CLIENT } from './infrastructure/hoteles/i-hoteles.client';
 import { HomiyaClient } from './infrastructure/homiya/homiya.client';
@@ -72,7 +74,11 @@ import { HotelesController } from './api/controllers/v1/HotelesController';
     DriveXClient,
     { provide: IDRIVEX_CLIENT, useExisting: DriveXClient },
 
-    // ── Servicio de vehículos (agrega UrbanCar + RentCar + RentWheels + DriveX) ─
+    // ── Zenith Drive ──────────────────────────────────────────────────────────
+    ZenithDriveClient,
+    { provide: IZENITH_DRIVE_CLIENT, useExisting: ZenithDriveClient },
+
+    // ── Servicio de vehículos (agrega UrbanCar + RentCar + RentWheels + DriveX + Zenith Drive) ─
     VehiculosService,
     { provide: IVEHICULOS_SERVICE, useExisting: VehiculosService },
 

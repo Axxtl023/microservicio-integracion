@@ -8,15 +8,18 @@ import type { IRentWheelsClient } from '../../infrastructure/rentwheels/i-rentwh
 import { IRENTWHEELS_CLIENT } from '../../infrastructure/rentwheels/i-rentwheels.client';
 import type { IDriveXClient } from '../../infrastructure/drivex/i-drivex.client';
 import { IDRIVEX_CLIENT } from '../../infrastructure/drivex/i-drivex.client';
+import type { IZenithDriveClient } from '../../infrastructure/zenith-drive/i-zenith-drive.client';
+import { IZENITH_DRIVE_CLIENT } from '../../infrastructure/zenith-drive/i-zenith-drive.client';
 import type { Vehiculo, PaginatedVehiculos, Disponibilidad } from '../../interfaces/urbancar.interface';
 
 @Injectable()
 export class VehiculosService implements IVehiculosService {
   constructor(
-    @Inject(IURBANCAR_CLIENT)   private readonly urbancar:    IUrbancarClient,
-    @Inject(IRENTCAR_CLIENT)    private readonly rentcar:     IRentcarClient,
-    @Inject(IRENTWHEELS_CLIENT) private readonly rentwheels:  IRentWheelsClient,
-    @Inject(IDRIVEX_CLIENT)     private readonly drivex:      IDriveXClient,
+    @Inject(IURBANCAR_CLIENT)      private readonly urbancar:    IUrbancarClient,
+    @Inject(IRENTCAR_CLIENT)       private readonly rentcar:     IRentcarClient,
+    @Inject(IRENTWHEELS_CLIENT)    private readonly rentwheels:  IRentWheelsClient,
+    @Inject(IDRIVEX_CLIENT)        private readonly drivex:      IDriveXClient,
+    @Inject(IZENITH_DRIVE_CLIENT)  private readonly zenith:      IZenithDriveClient,
   ) {}
 
   async listar(params: ListarVehiculosParams): Promise<PaginatedVehiculos> {
@@ -31,11 +34,12 @@ export class VehiculosService implements IVehiculosService {
     if (params.categoriaId) providerParams.categoriaId = params.categoriaId;
     if (params.status)      providerParams.status      = params.status;
 
-    const [urbanResult, rentcarResult, rentwheelsResult, drivexResult] = await Promise.allSettled([
+    const [urbanResult, rentcarResult, rentwheelsResult, drivexResult, zenithResult] = await Promise.allSettled([
       this.urbancar.getVehiculos(providerParams),
       this.rentcar.getVehiculos(providerParams),
       this.rentwheels.getVehiculos(providerParams),
       this.drivex.getVehiculos(providerParams),
+      this.zenith.getVehiculos(providerParams),
     ]);
 
     const norm = (v: Vehiculo): boolean =>
@@ -53,8 +57,11 @@ export class VehiculosService implements IVehiculosService {
     const drivexVehiculos = drivexResult.status === 'fulfilled'
       ? drivexResult.value.map(v => ({ ...v, proveedor: 'DriveX',     disponible: norm(v) }))
       : [];
+    const zenithVehiculos = zenithResult.status === 'fulfilled'
+      ? zenithResult.value.map(v => ({ ...v, proveedor: 'Zenith Drive', disponible: norm(v) }))
+      : [];
 
-    const all        = [...urbanVehiculos, ...rentcarVehiculos, ...rentwheelsVehiculos, ...drivexVehiculos];
+    const all        = [...urbanVehiculos, ...rentcarVehiculos, ...rentwheelsVehiculos, ...drivexVehiculos, ...zenithVehiculos];
     const total      = all.length;
     const totalPages = Math.max(1, Math.ceil(total / limit));
     const safePage   = Math.min(page, totalPages);
@@ -71,6 +78,7 @@ export class VehiculosService implements IVehiculosService {
         this.rentcar.getVehiculoById(id),
         this.rentwheels.getVehiculoById(id),
         this.drivex.getVehiculoById(id),
+        this.zenith.getVehiculoById(id),
       ]);
     } catch {
       throw new NotFoundException(`Vehículo ${id} no encontrado en ningún proveedor`);
@@ -83,6 +91,7 @@ export class VehiculosService implements IVehiculosService {
       this.rentcar.getDisponibilidad(id),
       this.rentwheels.getDisponibilidad(id),
       this.drivex.getDisponibilidad(id),
+      this.zenith.getDisponibilidad(id),
     ]);
 
     const fulfilled = results.filter(
