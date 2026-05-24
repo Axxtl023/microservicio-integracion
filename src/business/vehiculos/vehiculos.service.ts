@@ -14,6 +14,23 @@ import type { Vehiculo, PaginatedVehiculos, Disponibilidad } from '../../interfa
 
 @Injectable()
 export class VehiculosService implements IVehiculosService {
+  // Normalizador elástico: mapea los campos de Zenith Drive al contrato común
+  // independientemente de variaciones menores en los nombres de campo del proveedor.
+  private mapZenith(raw: Record<string, unknown>): Vehiculo {
+    return {
+      id:           String(raw.id ?? ''),
+      nombre:       String(raw.nombre ?? ''),
+      descripcion:  (raw.descripcion as string | null) ?? null,
+      precioPorDia: Number((raw.precioPorDia as number) || (raw.precio as number) || 0),
+      moneda:       String(raw.moneda ?? 'USD'),
+      categoria:    (raw.categoria as string | null) ?? null,
+      agenciaId:    (raw.agenciaId as string | null) ?? null,
+      disponible:   raw.disponible === true || raw.disponible === 'true',
+      status:       (raw.status  as string | null) ?? null,
+      imagenUrl:    (raw.imagenUrl as string | null) ?? null,
+    };
+  }
+
   constructor(
     @Inject(IURBANCAR_CLIENT)      private readonly urbancar:    IUrbancarClient,
     @Inject(IRENTCAR_CLIENT)       private readonly rentcar:     IRentcarClient,
@@ -57,8 +74,11 @@ export class VehiculosService implements IVehiculosService {
     const drivexVehiculos = drivexResult.status === 'fulfilled'
       ? drivexResult.value.map(v => ({ ...v, proveedor: 'DriveX',     disponible: norm(v) }))
       : [];
+    if (zenithResult.status === 'rejected') {
+      console.error('❌ [ZenithDrive List Error]:', zenithResult.reason);
+    }
     const zenithVehiculos = zenithResult.status === 'fulfilled'
-      ? zenithResult.value.map(v => ({ ...v, proveedor: 'Zenith Drive', disponible: norm(v) }))
+      ? zenithResult.value.map(auto => ({ ...this.mapZenith(auto as unknown as Record<string, unknown>), proveedor: 'Zenith Drive' }))
       : [];
 
     const all        = [...urbanVehiculos, ...rentcarVehiculos, ...rentwheelsVehiculos, ...drivexVehiculos, ...zenithVehiculos];

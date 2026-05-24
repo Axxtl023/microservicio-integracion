@@ -19,10 +19,12 @@ export class ZenithDriveClient implements IZenithDriveClient {
   async getVehiculos(_params: Record<string, unknown>): Promise<Vehiculo[]> {
     try {
       const res = await this.http.get('/v1/vehiculos/booking');
-      const items: unknown = res.data?.data ?? [];
+      // Tolera { data: [...] } y también un array plano en la raíz
+      const items: unknown = res.data?.data ?? res.data ?? [];
       this.logger.log(`[ZenithDrive] ${Array.isArray(items) ? items.length : 0} vehículos obtenidos`);
       return (Array.isArray(items) ? items : []) as Vehiculo[];
     } catch (err) {
+      console.error('❌ [ZenithDrive List Error]:', err);
       this.logger.error('[ZenithDrive] Error al obtener vehículos', err);
       throw new ServiceUnavailableException('No se pudo conectar con Zenith Drive');
     }
