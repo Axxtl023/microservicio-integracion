@@ -18,7 +18,7 @@ export class HousingPlaceClient implements IHousingPlaceClient {
 
   async getAlojamientos(): Promise<Record<string, unknown>[]> {
     try {
-      const res   = await this.http.get('/Alojamiento');
+      const res   = await this.http.get('/alojamientos');
       const items = Array.isArray(res.data) ? res.data : [];
       this.logger.log(`[HousingPlace] ${items.length} alojamientos obtenidos`);
       return items as Record<string, unknown>[];
@@ -31,7 +31,7 @@ export class HousingPlaceClient implements IHousingPlaceClient {
 
   async getAlojamientoById(id: number): Promise<Record<string, unknown> | null> {
     try {
-      const res   = await this.http.get(`/Alojamiento/${id}`);
+      const res   = await this.http.get(`/alojamientos/${id}`);
       const items = Array.isArray(res.data) ? res.data : [];
       return items.length > 0 ? (items[0] as Record<string, unknown>) : null;
     } catch (err) {
