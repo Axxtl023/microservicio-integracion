@@ -18,9 +18,8 @@ export class HousingPlaceClient implements IHousingPlaceClient {
 
   async getAlojamientos(): Promise<Record<string, unknown>[]> {
     try {
-      const res     = await this.http.get('/Alojamiento');
-      const payload: unknown = res.data || [];
-      const items   = Array.isArray(payload) ? payload : [];
+      const res   = await this.http.get('/Alojamiento');
+      const items = Array.isArray(res.data) ? res.data : [];
       this.logger.log(`[HousingPlace] ${items.length} alojamientos obtenidos`);
       return items as Record<string, unknown>[];
     } catch (err) {
@@ -45,9 +44,8 @@ export class HousingPlaceClient implements IHousingPlaceClient {
 
   async getHabitacionesPorAlojamiento(id: number): Promise<Habitacion[]> {
     try {
-      const res     = await this.http.get(`/habitaciones/alojamiento/${id}`);
-      const payload: unknown = res.data || [];
-      const items   = Array.isArray(payload) ? payload : [];
+      const res   = await this.http.get(`/habitaciones/alojamiento/${id}`);
+      const items = Array.isArray(res.data) ? res.data : [];
       this.logger.log(`[HousingPlace] ${items.length} habitaciones para alojamiento id=${id}`);
       return items as Habitacion[];
     } catch (err) {
