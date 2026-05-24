@@ -15,6 +15,8 @@ import { SkybookClient } from './infrastructure/skybook/skybook.client';
 import { ISKYBOOK_CLIENT } from './infrastructure/skybook/i-skybook.client';
 import { AeroWillyClient } from './infrastructure/aerowilly/aerowilly.client';
 import { IAEROWI_LLY_CLIENT } from './infrastructure/aerowilly/i-aerowilly.client';
+import { AeroCoreClient } from './infrastructure/aerocore/aerocore.client';
+import { IAEROCORE_CLIENT } from './infrastructure/aerocore/i-aerocore.client';
 import { VuelosService } from './business/vuelos/vuelos.service';
 import { IVUELOS_SERVICE } from './business/vuelos/interfaces/i-vuelos.service';
 import { VuelosController } from './api/controllers/v1/VuelosController';
@@ -94,7 +96,11 @@ import { HotelesController } from './api/controllers/v1/HotelesController';
     AeroWillyClient,
     { provide: IAEROWI_LLY_CLIENT, useExisting: AeroWillyClient },
 
-    // ── Servicio de vuelos (agrega VuelosApp + SkyBook + AeroWilly) ───────────
+    // ── AeroCore ──────────────────────────────────────────────────────────────
+    AeroCoreClient,
+    { provide: IAEROCORE_CLIENT, useExisting: AeroCoreClient },
+
+    // ── Servicio de vuelos (agrega VuelosApp + SkyBook + AeroWilly + AeroCore) ─
     VuelosService,
     { provide: IVUELOS_SERVICE, useExisting: VuelosService },
 

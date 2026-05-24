@@ -1,4 +1,4 @@
-import type { PaginatedVuelos } from '../../../interfaces/vuelos.interface';
+import type { Vuelo, PaginatedVuelos } from '../../../interfaces/vuelos.interface';
 
 export const IVUELOS_SERVICE = 'IVUELOS_SERVICE';
 
@@ -9,4 +9,5 @@ export interface ListarVuelosParams {
 
 export interface IVuelosService {
   listar(params: ListarVuelosParams): Promise<PaginatedVuelos>;
+  obtenerPorId(id: string): Promise<Vuelo | null>;
 }

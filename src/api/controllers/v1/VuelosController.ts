@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Query,
+  Controller, Get, Query, Param,
   Inject, HttpException, HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
@@ -15,7 +15,7 @@ export class VuelosController {
   ) {}
 
   @Get()
-  @ApiOperation({ summary: 'Listar vuelos del catálogo VuelosApp' })
+  @ApiOperation({ summary: 'Listar vuelos del catálogo multi-proveedor' })
   @ApiQuery({ name: 'page',  required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   async listar(
@@ -28,6 +28,25 @@ export class VuelosController {
         limit: limit ? Number(limit) : undefined,
       });
       return ApiResponse.ok(data, 'Vuelos obtenidos exitosamente');
+    } catch (err) {
+      if (err instanceof HttpException) throw err;
+      const msg = err instanceof Error ? err.message : 'Error interno';
+      throw new HttpException(ApiResponse.fail(msg), HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Obtener detalle de un vuelo por ID (AeroCore)' })
+  async obtenerPorId(@Param('id') id: string) {
+    try {
+      const data = await this.vuelosService.obtenerPorId(id);
+      if (!data) {
+        throw new HttpException(
+          ApiResponse.fail(`Vuelo ${id} no encontrado`),
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      return ApiResponse.ok(data, 'Vuelo obtenido exitosamente');
     } catch (err) {
       if (err instanceof HttpException) throw err;
       const msg = err instanceof Error ? err.message : 'Error interno';
