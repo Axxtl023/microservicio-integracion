@@ -31,10 +31,9 @@ export class HousingPlaceClient implements IHousingPlaceClient {
 
   async getAlojamientoById(id: number): Promise<Record<string, unknown> | null> {
     try {
-      const res     = await this.http.get(`/Alojamiento/${id}`);
-      const payload: unknown = res.data || null;
-      if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
-      return payload as Record<string, unknown>;
+      const res   = await this.http.get(`/Alojamiento/${id}`);
+      const items = Array.isArray(res.data) ? res.data : [];
+      return items.length > 0 ? (items[0] as Record<string, unknown>) : null;
     } catch (err) {
       console.error('❌ [HousingPlace Error]:', err);
       this.logger.error(`[HousingPlace] Error al obtener alojamiento id=${id}`, err);
