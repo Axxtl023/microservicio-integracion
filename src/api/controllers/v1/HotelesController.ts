@@ -38,9 +38,13 @@ export class HotelesController {
   @Get(':id')
   @ApiOperation({ summary: 'Obtener detalle de un hotel por ID' })
   @ApiParam({ name: 'id', type: Number })
-  async obtenerPorId(@Param('id') id: string) {
+  @ApiQuery({ name: 'proveedor', required: false, type: String })
+  async obtenerPorId(
+    @Param('id')         id:         string,
+    @Query('proveedor')  proveedor?: string,
+  ) {
     try {
-      const data = await this.hotelesService.obtenerPorId(Number(id));
+      const data = await this.hotelesService.obtenerPorId(Number(id), proveedor);
       return ApiResponse.ok(data, 'Hotel obtenido exitosamente');
     } catch (err) {
       if (err instanceof HttpException) throw err;

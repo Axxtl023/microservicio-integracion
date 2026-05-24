@@ -162,7 +162,60 @@ export class HotelesService implements IHotelesService {
     return { items, total, page: safePage, limit, totalPages };
   }
 
-  async obtenerPorId(id: number): Promise<Hotel> {
+  async obtenerPorId(id: number, proveedor?: string): Promise<Hotel> {
+    if (proveedor === 'HousingPlace') {
+      const housingPlaceRaw = await this.housingPlace.getAlojamientoById(id);
+      if (housingPlaceRaw) {
+        const mapped          = this.mapHousingPlace(housingPlaceRaw);
+        const habitacionesRaw = await this.housingPlace.getHabitacionesPorAlojamiento(id);
+        const habitaciones: HabitacionUnificada[] = (habitacionesRaw as unknown as Record<string, unknown>[]).map((r) => ({
+          id:             String(r.habitacionId ?? 0),
+          nombre:         String(r.nombre       ?? 'Habitación'),
+          precioNoche:    Number(r.precioNoche)  || 0,
+          capacidadTotal: Number(r.capacidadAdultos ?? 0) + Number(r.capacidadNinos ?? 0),
+          disponible:     true,
+        }));
+        const precioBase = habitaciones.length > 0
+          ? Math.min(...habitaciones.map((h) => h.precioNoche))
+          : (mapped.precioBase ?? 40);
+        return { ...mapped, precioBase, proveedor: 'HousingPlace', habitaciones };
+      }
+      throw new NotFoundException(`Hotel HousingPlace con id "${id}" no encontrado`);
+    }
+
+    if (proveedor === 'Locus') {
+      const locusRaw = await this.locus.getHotelById(id).catch(() => null);
+      if (locusRaw) {
+        const habitacionesRaw = await this.locus.getHabitacionesPorAlojamiento(id);
+        const habitaciones    = this.normalizarHabitaciones(habitacionesRaw);
+        const precioBase      = habitaciones.length > 0 ? Math.min(...habitaciones.map((h) => h.precioNoche)) : (locusRaw.precioBase ?? 40);
+        return { ...this.mapHotel({ ...locusRaw, alojamientoId: id, precioBase }, 'Locus'), habitaciones };
+      }
+      throw new NotFoundException(`Hotel Locus con id "${id}" no encontrado`);
+    }
+
+    if (proveedor === 'Homiya') {
+      const homiyaRaw = await this.homiya.getHotelById(id).catch(() => null);
+      if (homiyaRaw) {
+        const habitacionesRaw = await this.homiya.getHabitacionesPorAlojamiento(id);
+        const habitaciones    = this.normalizarHabitaciones(habitacionesRaw);
+        const precioBase      = habitaciones.length > 0 ? Math.min(...habitaciones.map((h) => h.precioNoche)) : (homiyaRaw.precioBase ?? 40);
+        return { ...this.mapHotel({ ...homiyaRaw, alojamientoId: id, precioBase }, 'Homiya'), habitaciones };
+      }
+      throw new NotFoundException(`Hotel Homiya con id "${id}" no encontrado`);
+    }
+
+    if (proveedor === "Rodrigo's") {
+      const rodrigosRaw = await this.rodrigos.getHotelById(id).catch(() => null);
+      if (rodrigosRaw) {
+        const habitacionesRaw = await this.rodrigos.getHabitacionesPorAlojamiento(id);
+        const habitaciones    = this.normalizarHabitaciones(habitacionesRaw);
+        const precioBase      = habitaciones.length > 0 ? Math.min(...habitaciones.map((h) => h.precioNoche)) : (rodrigosRaw.precioBase ?? 40);
+        return { ...this.mapHotel({ ...rodrigosRaw, alojamientoId: id, precioBase }, "Rodrigo's"), habitaciones };
+      }
+      throw new NotFoundException(`Hotel Rodrigo's con id "${id}" no encontrado`);
+    }
+
     const [locusResult, homiyaResult, rodrigosResult, housingPlaceResult] = await Promise.allSettled([
       this.locus.getHotelById(id),
       this.homiya.getHotelById(id),

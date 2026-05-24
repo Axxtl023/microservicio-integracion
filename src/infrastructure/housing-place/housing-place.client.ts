@@ -33,7 +33,17 @@ export class HousingPlaceClient implements IHousingPlaceClient {
     try {
       const res   = await this.http.get(`/alojamientos/${id}`);
       const items = Array.isArray(res.data) ? res.data : [];
-      return items.length > 0 ? (items[0] as Record<string, unknown>) : null;
+      if (items.length > 0) return items[0] as Record<string, unknown>;
+    } catch {
+      // direct lookup failed — fall through to full-list filter
+    }
+    try {
+      const res = await this.http.get('/alojamientos');
+      const all = Array.isArray(res.data) ? res.data : [];
+      const match = all.find(
+        (h: unknown) => Number((h as Record<string, unknown>).alojamientoId) === id,
+      );
+      return (match as Record<string, unknown>) ?? null;
     } catch (err) {
       console.error('❌ [HousingPlace Error]:', err);
       this.logger.error(`[HousingPlace] Error al obtener alojamiento id=${id}`, err);

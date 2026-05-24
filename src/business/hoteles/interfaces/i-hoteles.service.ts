@@ -9,5 +9,5 @@ export interface ListarHotelesParams {
 
 export interface IHotelesService {
   listar(params: ListarHotelesParams): Promise<PaginatedHoteles>;
-  obtenerPorId(id: number): Promise<Hotel>;
+  obtenerPorId(id: number, proveedor?: string): Promise<Hotel>;
 }
