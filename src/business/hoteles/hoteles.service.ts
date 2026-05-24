@@ -122,31 +122,31 @@ export class HotelesService implements IHotelesService {
     const homiyaRaw   = homiyaResult.status   === 'fulfilled' ? homiyaResult.value   : null;
     const rodrigosRaw = rodrigosResult.status === 'fulfilled' ? rodrigosResult.value : null;
 
-    if (locusRaw && locusRaw.alojamientoId) {
-      const habitacionesRaw = await this.locus.getHabitacionesPorAlojamiento(locusRaw.alojamientoId);
+    if (locusRaw) {
+      const habitacionesRaw = await this.locus.getHabitacionesPorAlojamiento(id);
       const habitaciones    = this.normalizarHabitaciones(habitacionesRaw);
       const precioBase      = habitaciones.length > 0
         ? Math.min(...habitaciones.map((h) => h.precioNoche))
         : (locusRaw.precioBase ?? 40);
-      return this.mapHotel({ ...locusRaw, precioBase, habitaciones }, 'Locus');
+      return this.mapHotel({ ...locusRaw, alojamientoId: id, precioBase, habitaciones }, 'Locus');
     }
 
-    if (homiyaRaw && homiyaRaw.alojamientoId) {
-      const habitacionesRaw = await this.homiya.getHabitacionesPorAlojamiento(homiyaRaw.alojamientoId);
+    if (homiyaRaw) {
+      const habitacionesRaw = await this.homiya.getHabitacionesPorAlojamiento(id);
       const habitaciones    = this.normalizarHabitaciones(habitacionesRaw);
       const precioBase      = habitaciones.length > 0
         ? Math.min(...habitaciones.map((h) => h.precioNoche))
         : (homiyaRaw.precioBase ?? 40);
-      return this.mapHotel({ ...homiyaRaw, precioBase, habitaciones }, 'Homiya');
+      return this.mapHotel({ ...homiyaRaw, alojamientoId: id, precioBase, habitaciones }, 'Homiya');
     }
 
-    if (rodrigosRaw && rodrigosRaw.alojamientoId) {
-      const habitacionesRaw = await this.rodrigos.getHabitacionesPorAlojamiento(rodrigosRaw.alojamientoId);
+    if (rodrigosRaw) {
+      const habitacionesRaw = await this.rodrigos.getHabitacionesPorAlojamiento(id);
       const habitaciones    = this.normalizarHabitaciones(habitacionesRaw);
       const precioBase      = habitaciones.length > 0
         ? Math.min(...habitaciones.map((h) => h.precioNoche))
         : (rodrigosRaw.precioBase ?? 40);
-      return this.mapHotel({ ...rodrigosRaw, precioBase, habitaciones }, "Rodrigo's");
+      return this.mapHotel({ ...rodrigosRaw, alojamientoId: id, precioBase, habitaciones }, "Rodrigo's");
     }
 
     throw new NotFoundException(`Hotel con id "${id}" no encontrado en ningún proveedor`);
