@@ -128,7 +128,7 @@ export class HotelesService implements IHotelesService {
       const precioBase      = habitaciones.length > 0
         ? Math.min(...habitaciones.map((h) => h.precioNoche))
         : (locusRaw.precioBase ?? 40);
-      return this.mapHotel({ ...locusRaw, alojamientoId: id, precioBase, habitaciones }, 'Locus');
+      return { ...this.mapHotel({ ...locusRaw, alojamientoId: id, precioBase }, 'Locus'), habitaciones };
     }
 
     if (homiyaRaw) {
@@ -137,7 +137,7 @@ export class HotelesService implements IHotelesService {
       const precioBase      = habitaciones.length > 0
         ? Math.min(...habitaciones.map((h) => h.precioNoche))
         : (homiyaRaw.precioBase ?? 40);
-      return this.mapHotel({ ...homiyaRaw, alojamientoId: id, precioBase, habitaciones }, 'Homiya');
+      return { ...this.mapHotel({ ...homiyaRaw, alojamientoId: id, precioBase }, 'Homiya'), habitaciones };
     }
 
     if (rodrigosRaw) {
@@ -146,7 +146,7 @@ export class HotelesService implements IHotelesService {
       const precioBase      = habitaciones.length > 0
         ? Math.min(...habitaciones.map((h) => h.precioNoche))
         : (rodrigosRaw.precioBase ?? 40);
-      return this.mapHotel({ ...rodrigosRaw, alojamientoId: id, precioBase, habitaciones }, "Rodrigo's");
+      return { ...this.mapHotel({ ...rodrigosRaw, alojamientoId: id, precioBase }, "Rodrigo's"), habitaciones };
     }
 
     throw new NotFoundException(`Hotel con id "${id}" no encontrado en ningún proveedor`);
