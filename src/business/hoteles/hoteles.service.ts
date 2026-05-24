@@ -205,8 +205,14 @@ export class HotelesService implements IHotelesService {
     if (housingPlaceRaw) {
       const mapped          = this.mapHousingPlace(housingPlaceRaw);
       const habitacionesRaw = await this.housingPlace.getHabitacionesPorAlojamiento(id);
-      const habitaciones    = this.normalizarHabitaciones(habitacionesRaw);
-      const precioBase      = habitaciones.length > 0
+      const habitaciones: HabitacionUnificada[] = (habitacionesRaw as unknown as Record<string, unknown>[]).map((r) => ({
+        id:             String(r.habitacionId ?? 0),
+        nombre:         String(r.nombre       ?? 'Habitación'),
+        precioNoche:    Number(r.precioNoche)  || 0,
+        capacidadTotal: Number(r.capacidadAdultos ?? 0) + Number(r.capacidadNinos ?? 0),
+        disponible:     true,
+      }));
+      const precioBase = habitaciones.length > 0
         ? Math.min(...habitaciones.map((h) => h.precioNoche))
         : (mapped.precioBase ?? 40);
       return { ...mapped, precioBase, proveedor: 'HousingPlace', habitaciones };
