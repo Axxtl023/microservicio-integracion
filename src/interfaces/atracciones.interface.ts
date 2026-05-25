@@ -47,6 +47,12 @@ export interface Atraccion {
   isPublished?:         boolean;
   modalityCount?:       number | null;
   proveedor?:           string;
+  slots?: {
+    slotId: string;
+    fecha: string;
+    horaInicio: string;
+    cuposDisponibles: number;
+  }[];
 }
 
 export interface AtraccionesApiResponse {

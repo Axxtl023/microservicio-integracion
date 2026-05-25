@@ -2,7 +2,12 @@ import { Injectable, Logger, NotFoundException, ServiceUnavailableException } fr
 import axios, { AxiosInstance } from 'axios';
 import type { IRentWheelsClient } from './i-rentwheels.client';
 import type { Vehiculo, Disponibilidad } from '../../interfaces/urbancar.interface';
+import type { CrearReservaExternaDto } from '../../business/vehiculos/dtos/crear-reserva-externa.dto';
+import type { DisponibilidadDto } from '../../business/vehiculos/dtos/disponibilidad.dto';
+import type { ReservaExternaDto } from '../../business/vehiculos/dtos/reserva-externa.dto';
+import { mapHttpToDomainError } from '../../business/vehiculos/errors/map-http-error';
 
+const PROV = 'RentWheels';
 const BASE_PATH = '/api/v1/gustavobenalcazar/booking';
 
 @Injectable()
@@ -56,11 +61,60 @@ export class RentWheelsClient implements IRentWheelsClient {
       return data;
     } catch (err) {
       if (err instanceof NotFoundException) throw err;
-      if ((err as any)?.response?.status === 404) {
+      if ((err as { response?: { status?: number } })?.response?.status === 404) {
         throw new NotFoundException(`Disponibilidad de ${id} no encontrada en RentWheels`);
       }
       this.logger.error(`[RentWheels] Error al obtener disponibilidad ${id}`, err);
-      throw new ServiceUnavailableException('No se pudo conectar con RentWheels');
+      throw mapHttpToDomainError(err, PROV, 'No se pudo consultar disponibilidad');
+    }
+  }
+
+  // ─── Reservas externas ──────────────────────────────────────────────────────
+  async verificarDisponibilidadExterna(vehiculoId: string): Promise<DisponibilidadDto> {
+    return this.getDisponibilidad(vehiculoId) as Promise<DisponibilidadDto>;
+  }
+
+  async crearReservaExterna(data: CrearReservaExternaDto): Promise<ReservaExternaDto> {
+    try {
+      const body = {
+        vehiculoId: data.vehiculoId,
+        clienteId: data.clienteId,
+        agenciaId: data.agenciaId,
+        fechaInicio: data.fechaInicio,
+        fechaFin: data.fechaFin,
+      };
+      const res = await this.http.post(`${BASE_PATH}/reservas`, body);
+      const created = res.data?.data ?? res.data;
+      if (!created || typeof created !== 'object') throw new Error('Respuesta inválida del proveedor');
+      return created as ReservaExternaDto;
+    } catch (err) {
+      this.logger.error(`[${PROV}] Error creando reserva para vehiculo ${data.vehiculoId}`, err);
+      throw mapHttpToDomainError(err, PROV, 'No se pudo crear la reserva');
+    }
+  }
+
+  async confirmarReservaExterna(id: string): Promise<ReservaExternaDto> {
+    try {
+      const res = await this.http.patch(`${BASE_PATH}/reservas/${id}`, { status: 'CONFIRMADA' });
+      const updated = res.data?.data ?? res.data;
+      if (!updated || typeof updated !== 'object') throw new Error('Respuesta inválida del proveedor');
+      return updated as ReservaExternaDto;
+    } catch (err) {
+      this.logger.error(`[${PROV}] Error confirmando reserva ${id}`, err);
+      throw mapHttpToDomainError(err, PROV, 'No se pudo confirmar la reserva');
+    }
+  }
+
+  async cancelarReservaExterna(id: string, reason?: string): Promise<ReservaExternaDto> {
+    try {
+      if (reason) this.logger.log(`[${PROV}] Cancelando reserva ${id}. Razón: ${reason}`);
+      const res = await this.http.patch(`${BASE_PATH}/reservas/${id}`, { status: 'CANCELADA' });
+      const updated = res.data?.data ?? res.data;
+      if (!updated || typeof updated !== 'object') throw new Error('Respuesta inválida del proveedor');
+      return updated as ReservaExternaDto;
+    } catch (err) {
+      this.logger.error(`[${PROV}] Error cancelando reserva ${id}`, err);
+      throw mapHttpToDomainError(err, PROV, 'No se pudo cancelar la reserva');
     }
   }
 }
