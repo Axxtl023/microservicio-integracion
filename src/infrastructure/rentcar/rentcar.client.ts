@@ -16,23 +16,49 @@ const PROV = 'RentCar';
 @Injectable()
 export class RentcarClient implements IRentcarClient {
   private readonly logger = new Logger(RentcarClient.name);
-  private readonly http: AxiosInstance;
+  private readonly inventoryHttp: AxiosInstance;
+  private readonly operationsHttp: AxiosInstance;
 
   constructor() {
-    const baseURL = process.env.RENTCAR_BASE_URL ?? '';
-    this.http = axios.create({
-      baseURL,
+    const inventarioBaseURL = process.env.RENTCAR_INVENTARIO_URL
+      ?? process.env.RENTCAR_BASE_URL
+      ?? 'https://rentcar-inventario.whiteisland-027d7f3d.canadacentral.azurecontainerapps.io/api/v1/stevenariel';
+
+    const operacionesBaseURL = process.env.RENTCAR_OPERACIONES_URL
+      ?? process.env.RENTCAR_BASE_URL
+      ?? 'https://rentcar-operaciones.whiteisland-027d7f3d.canadacentral.azurecontainerapps.io/api/v1/stevenariel';
+
+    this.inventoryHttp = axios.create({
+      baseURL: inventarioBaseURL,
       timeout: 10_000,
       headers: { 'Content-Type': 'application/json' },
     });
 
-    // Response interceptor: loguea errores
-    this.http.interceptors.response.use(
+    this.operationsHttp = axios.create({
+      baseURL: operacionesBaseURL,
+      timeout: 10_000,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    // Response interceptor: loguea errores en inventario
+    this.inventoryHttp.interceptors.response.use(
       (response) => response,
       async (error) => {
         const apiError = error.response?.data?.error as { code?: string; message?: string } | undefined;
         if (apiError) {
-          this.logger.error(`[${PROV}] App error: ${apiError.code} — ${apiError.message}`);
+          this.logger.error(`[${PROV} Inventario] App error: ${apiError.code} — ${apiError.message}`);
+        }
+        return Promise.reject(error);
+      },
+    );
+
+    // Response interceptor: loguea errores en operaciones
+    this.operationsHttp.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const apiError = error.response?.data?.error as { code?: string; message?: string } | undefined;
+        if (apiError) {
+          this.logger.error(`[${PROV} Operaciones] App error: ${apiError.code} — ${apiError.message}`);
         }
         return Promise.reject(error);
       },
@@ -42,7 +68,7 @@ export class RentcarClient implements IRentcarClient {
   // ─── Catálogo ───────────────────────────────────────────────────────────────
   async getVehiculos(params: Record<string, unknown>): Promise<Vehiculo[]> {
     try {
-      const res = await this.http.get<RentCarListApiResponse<Vehiculo>>('vehiculos/booking', { params });
+      const res = await this.inventoryHttp.get<RentCarListApiResponse<Vehiculo>>('vehiculos/booking', { params });
       const body = res.data;
       if (!body.success) {
         this.logger.warn(`[${PROV}] success=false al listar vehículos`);
@@ -57,7 +83,7 @@ export class RentcarClient implements IRentcarClient {
 
   async getVehiculoById(id: string): Promise<Vehiculo> {
     try {
-      const res = await this.http.get<RentCarApiResponse<Vehiculo>>(`vehiculos/booking/${id}`);
+      const res = await this.inventoryHttp.get<RentCarApiResponse<Vehiculo>>(`vehiculos/booking/${id}`);
       const body = res.data;
       if (!body.success || !body.data) throw new NotFoundException(`Vehículo ${id} no encontrado en ${PROV}`);
       return body.data;
@@ -73,7 +99,7 @@ export class RentcarClient implements IRentcarClient {
 
   async getDisponibilidad(id: string): Promise<Disponibilidad> {
     try {
-      const res = await this.http.get<RentCarApiResponse<Disponibilidad>>(`vehiculos/booking/${id}/disponibilidad`);
+      const res = await this.inventoryHttp.get<RentCarApiResponse<Disponibilidad>>(`vehiculos/booking/${id}/disponibilidad`);
       const body = res.data;
       if (!body.success || !body.data) throw new NotFoundException(`Disponibilidad de ${id} no encontrada en ${PROV}`);
       return body.data;
@@ -94,16 +120,15 @@ export class RentcarClient implements IRentcarClient {
 
   async crearReservaExterna(data: CrearReservaExternaDto): Promise<ReservaExternaDto> {
     try {
-      // RentCar deriva clienteId del JWT, así que no se envía en el body.
-      // El YAML de Steven usa fechas date-only (YYYY-MM-DD), así que truncamos
-      // el ISO que viene del controller.
+      // El contrato de RentCar ahora es público, requiere clienteId, y acepta ISO 8601 completo en reservas/booking.
       const body = {
         vehiculoId: data.vehiculoId,
-        agenciaId: data.agenciaId,
-        fechaInicio: this.toDateOnly(data.fechaInicio),
-        fechaFin: this.toDateOnly(data.fechaFin),
+        clienteId: data.clienteId,
+        agenciaId: data.agenciaId || undefined,
+        fechaInicio: data.fechaInicio,
+        fechaFin: data.fechaFin,
       };
-      const res = await this.http.post<RentCarApiResponse<ReservaExternaDto>>('reservas/booking', body);
+      const res = await this.operationsHttp.post<RentCarApiResponse<ReservaExternaDto>>('reservas/booking', body);
       if (!res.data.success || !res.data.data) throw new Error('Respuesta inválida del proveedor');
       return res.data.data;
     } catch (err) {
@@ -112,13 +137,9 @@ export class RentcarClient implements IRentcarClient {
     }
   }
 
-  private toDateOnly(value: string): string {
-    return value.includes('T') ? value.slice(0, 10) : value;
-  }
-
   async confirmarReservaExterna(id: string): Promise<ReservaExternaDto> {
     try {
-      const res = await this.http.patch<RentCarApiResponse<ReservaExternaDto>>(`reservas/booking/${id}`, { status: 'CONFIRMADA' });
+      const res = await this.operationsHttp.patch<RentCarApiResponse<ReservaExternaDto>>(`reservas/booking/${id}`, { status: 'CONFIRMADA' });
       if (!res.data.success || !res.data.data) throw new Error('Respuesta inválida del proveedor');
       return res.data.data;
     } catch (err) {
@@ -130,7 +151,7 @@ export class RentcarClient implements IRentcarClient {
   async cancelarReservaExterna(id: string, reason?: string): Promise<ReservaExternaDto> {
     try {
       if (reason) this.logger.log(`[${PROV}] Cancelando reserva ${id}. Razón: ${reason}`);
-      const res = await this.http.patch<RentCarApiResponse<ReservaExternaDto>>(`reservas/booking/${id}`, { status: 'CANCELADA' });
+      const res = await this.operationsHttp.patch<RentCarApiResponse<ReservaExternaDto>>(`reservas/booking/${id}`, { status: 'CANCELADA' });
       if (!res.data.success || !res.data.data) throw new Error('Respuesta inválida del proveedor');
       return res.data.data;
     } catch (err) {

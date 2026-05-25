@@ -103,7 +103,7 @@ export class DriveXClient implements IDriveXClient {
 
   async confirmarReservaExterna(id: string): Promise<ReservaExternaDto> {
     try {
-      const res = await this.operacionesHttp.patch(`/reservas/${id}`, { status: 'CONFIRMADA' });
+      const res = await this.operacionesHttp.patch(`/reservas/${id}`, { status: 'CONFIRMADA', estado: 'CONFIRMADA' });
       const updated = res.data?.data ?? res.data;
       if (!updated || typeof updated !== 'object') throw new Error('Respuesta inválida del proveedor');
       return updated as ReservaExternaDto;
@@ -116,7 +116,7 @@ export class DriveXClient implements IDriveXClient {
   async cancelarReservaExterna(id: string, reason?: string): Promise<ReservaExternaDto> {
     try {
       if (reason) this.logger.log(`[${PROV}] Cancelando reserva ${id}. Razón: ${reason}`);
-      const res = await this.operacionesHttp.patch(`/reservas/${id}`, { status: 'CANCELADA' });
+      const res = await this.operacionesHttp.patch(`/reservas/${id}`, { status: 'CANCELADA', estado: 'CANCELADA' });
       const updated = res.data?.data ?? res.data;
       if (!updated || typeof updated !== 'object') throw new Error('Respuesta inválida del proveedor');
       return updated as ReservaExternaDto;
