@@ -1,7 +1,12 @@
 import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
+import axios from 'axios';
 import { UrbancarClient } from './infrastructure/urbancar/urbancar.client';
-import { IURBANCAR_CLIENT } from './infrastructure/urbancar/i-urbancar.client';
+import {
+  IURBANCAR_CLIENT,
+  URBANCAR_INVENTORY_HTTP,
+  URBANCAR_OPERATIONS_HTTP,
+} from './infrastructure/urbancar/i-urbancar.client';
 import { RentcarClient } from './infrastructure/rentcar/rentcar.client';
 import { IRENTCAR_CLIENT } from './infrastructure/rentcar/i-rentcar.client';
 import { RentWheelsClient } from './infrastructure/rentwheels/rentwheels.client';
@@ -48,6 +53,7 @@ import { IALOJAEXPRESS_CLIENT } from './infrastructure/aloja-express/i-aloja-exp
 import { HotelesService } from './business/hoteles/hoteles.service';
 import { IHOTELES_SERVICE } from './business/hoteles/interfaces/i-hoteles.service';
 import { HotelesController } from './api/controllers/v1/HotelesController';
+import { IntegrationGrpcController } from './api/controllers/grpc/IntegrationGrpcController';
 
 @Module({
   imports: [
@@ -62,8 +68,32 @@ import { HotelesController } from './api/controllers/v1/HotelesController';
       }),
     }),
   ],
-  controllers: [ProductosController, VuelosController, AtraccionesController, HotelesController],
+  controllers: [ProductosController, VuelosController, AtraccionesController, HotelesController, IntegrationGrpcController],
   providers: [
+    {
+      provide: URBANCAR_INVENTORY_HTTP,
+      useFactory: () =>
+        axios.create({
+          baseURL:
+            (process.env.URBANCAR_BASE_URL ??
+              'https://inventario-service.ambitioushill-8cbf622c.eastus2.azurecontainerapps.io') +
+            (process.env.URBANCAR_PREFIX ?? '/api/v1/emilypamela'),
+          timeout: 10_000,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+    },
+    {
+      provide: URBANCAR_OPERATIONS_HTTP,
+      useFactory: () =>
+        axios.create({
+          baseURL:
+            process.env.URBANCAR_OPERATIONS_URL ??
+            'https://operaciones-service.ambitioushill-8cbf622c.eastus2.azurecontainerapps.io/api/v1/emilypamela',
+          timeout: 10_000,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+    },
+
     // ── UrbanCar (proveedor original — sin cambios) ───────────────────────────
     UrbancarClient,
     { provide: IURBANCAR_CLIENT, useExisting: UrbancarClient },

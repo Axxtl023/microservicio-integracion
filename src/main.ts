@@ -2,6 +2,8 @@ require('dotenv').config();
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { Transport, type MicroserviceOptions } from '@nestjs/microservices';
+import { join } from 'path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -15,6 +17,15 @@ async function bootstrap() {
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.GRPC,
+    options: {
+      package: 'booking.integration.v1',
+      protoPath: join(__dirname, 'protos/integration.proto'),
+      url: `0.0.0.0:${process.env.GRPC_PORT || 5003}`,
+    },
+  });
+
   const config = new DocumentBuilder()
     .setTitle('Microservicio Integración — UrbanCar EC')
     .setDescription('Proxy de catálogo de vehículos UrbanCar EC. Solo lectura.')
@@ -25,7 +36,9 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   const port = process.env.PORT || 3003;
+  await app.startAllMicroservices();
   await app.listen(port, '0.0.0.0');
+  console.log(`gRPC IntegrationService escuchando en el puerto ${process.env.GRPC_PORT || 5003}`);
   console.log(`Microservicio Integración corriendo en el puerto ${port}`);
 }
 bootstrap();
