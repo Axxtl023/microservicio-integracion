@@ -10,7 +10,6 @@ import type { CrearReservaExternaDto } from '../../business/vehiculos/dtos/crear
 import type { DisponibilidadDto } from '../../business/vehiculos/dtos/disponibilidad.dto';
 import type { ReservaExternaDto } from '../../business/vehiculos/dtos/reserva-externa.dto';
 import { mapHttpToDomainError } from '../../business/vehiculos/errors/map-http-error';
-import { JwtTokenCache } from '../../business/vehiculos/jwt-token-cache';
 
 const PROV = 'RentCar';
 
@@ -18,7 +17,6 @@ const PROV = 'RentCar';
 export class RentcarClient implements IRentcarClient {
   private readonly logger = new Logger(RentcarClient.name);
   private readonly http: AxiosInstance;
-  private readonly auth: JwtTokenCache;
 
   constructor() {
     const baseURL = process.env.RENTCAR_BASE_URL ?? '';
@@ -28,34 +26,10 @@ export class RentcarClient implements IRentcarClient {
       headers: { 'Content-Type': 'application/json' },
     });
 
-    // RentCar requiere JWT en todas las rutas excepto /auth/login.
-    // Cache + auto-renewal:
-    this.auth = new JwtTokenCache({
-      proveedor: PROV,
-      loginUrl: `${baseURL}/auth/login`,
-      email: process.env.RENTCAR_SERVICE_EMAIL,
-      password: process.env.RENTCAR_SERVICE_PASSWORD,
-    });
-
-    // Request interceptor: agrega Bearer
-    this.http.interceptors.request.use(async (config) => {
-      const token = await this.auth.getValidToken();
-      config.headers.Authorization = `Bearer ${token}`;
-      return config;
-    });
-
-    // Response interceptor: 401 → invalidate + retry una vez
+    // Response interceptor: loguea errores
     this.http.interceptors.response.use(
       (response) => response,
       async (error) => {
-        const original = error.config;
-        if (error.response?.status === 401 && !original?._retry) {
-          original._retry = true;
-          this.auth.invalidate();
-          const token = await this.auth.getValidToken();
-          original.headers.Authorization = `Bearer ${token}`;
-          return this.http.request(original);
-        }
         const apiError = error.response?.data?.error as { code?: string; message?: string } | undefined;
         if (apiError) {
           this.logger.error(`[${PROV}] App error: ${apiError.code} — ${apiError.message}`);
