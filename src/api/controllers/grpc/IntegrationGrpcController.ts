@@ -24,6 +24,14 @@ import { IAEROWI_LLY_CLIENT } from '../../../infrastructure/aerowilly/i-aerowill
 import { IAEROCORE_CLIENT } from '../../../infrastructure/aerocore/i-aerocore.client';
 import type { ReservaVueloExternaDto } from '../../../business/vuelos/dtos/reserva-vuelo-externa.dto';
 
+import type { IReservaExternaAtraccionClient } from '../../../business/atracciones/i-reserva-externa-atraccion.client';
+import { TOUR_PROVIDER_IDS, resolveTourProvider, type TourProviderKey } from '../../../business/atracciones/tour-provider-routing';
+import { IATRACCIONES_CLIENT } from '../../../infrastructure/atracciones/i-atracciones.client';
+import { IATRACCIONCATS_CLIENT } from '../../../infrastructure/atraccioncats/i-atraccioncats.client';
+import { IVENTURO_CLIENT } from '../../../infrastructure/venturo/i-venturo.client';
+import { INEXTSTOP_CLIENT } from '../../../infrastructure/nextstop/i-nextstop.client';
+import type { ReservaAtraccionExternaDto } from '../../../business/atracciones/dtos/reserva-atraccion-externa.dto';
+
 enum ProviderType {
   PROVIDER_TYPE_UNSPECIFIED = 0,
   VEHICLE = 1,
@@ -64,6 +72,31 @@ interface FlightDetails {
   passengers?: FlightPassenger[];
 }
 
+interface TourPassenger {
+  firstName?: string;
+  first_name?: string;
+  lastName?: string;
+  last_name?: string;
+  documentNumber?: string;
+  document_number?: string;
+  documentType?: string;
+  document_type?: string;
+}
+
+interface TourDetails {
+  slotId?: string;
+  slot_id?: string;
+  attractionId?: string;
+  attraction_id?: string;
+  productOptionId?: string;
+  product_option_id?: string;
+  passengers?: TourPassenger[];
+  contactName?: string;
+  contact_name?: string;
+  contactEmail?: string;
+  contact_email?: string;
+}
+
 interface BookingItem {
   itemId?: string;
   item_id?: string;
@@ -74,6 +107,7 @@ interface BookingItem {
   provider_id?: string;
   vehicle?: VehicleDetails;
   flight?: FlightDetails;
+  tour?: TourDetails;
 }
 
 interface CheckBatchAvailabilityRequest {
@@ -110,6 +144,12 @@ interface FlightProviderRoute {
   client: IReservaExternaVueloClient;
 }
 
+interface TourProviderRoute {
+  key: TourProviderKey;
+  name: string;
+  client: IReservaExternaAtraccionClient;
+}
+
 @Controller()
 export class IntegrationGrpcController {
   private readonly logger = new Logger(IntegrationGrpcController.name);
@@ -124,6 +164,10 @@ export class IntegrationGrpcController {
     @Inject(ISKYBOOK_CLIENT) private readonly skybook: IReservaExternaVueloClient,
     @Inject(IAEROWI_LLY_CLIENT) private readonly aeroWilly: IReservaExternaVueloClient,
     @Inject(IAEROCORE_CLIENT) private readonly aeroCore: IReservaExternaVueloClient,
+    @Inject(IATRACCIONES_CLIENT) private readonly terraQuest: IReservaExternaAtraccionClient,
+    @Inject(IATRACCIONCATS_CLIENT) private readonly atraccionCats: IReservaExternaAtraccionClient,
+    @Inject(IVENTURO_CLIENT) private readonly venturo: IReservaExternaAtraccionClient,
+    @Inject(INEXTSTOP_CLIENT) private readonly nextStop: IReservaExternaAtraccionClient,
   ) {}
 
   @GrpcMethod('IntegrationService', 'CheckBatchAvailability')
@@ -158,6 +202,27 @@ export class IntegrationGrpcController {
         return this.toFlightMutationResponse(remote);
       }
 
+      if (itemType === ProviderType.TOUR) {
+        const tourRoute = this.resolveTourRoute(item);
+        const tour = this.requireTour(item);
+        const slotId = this.requireString(tour.slotId ?? tour.slot_id, 'tour.slot_id');
+        this.logger.log(`[create] TOUR provider_name=${tourRoute.name} provider_id=${this.providerId(item)} slot_id=${slotId}`);
+        const remote = await tourRoute.client.crearReservaAtraccionExterna({
+          slotId,
+          attractionId: this.requireString(tour.attractionId ?? tour.attraction_id, 'tour.attraction_id'),
+          productOptionId: this.requireString(tour.productOptionId ?? tour.product_option_id, 'tour.product_option_id'),
+          contactName: tour.contactName ?? tour.contact_name ?? '',
+          contactEmail: tour.contactEmail ?? tour.contact_email ?? '',
+          passengers: (tour.passengers ?? []).map((p) => ({
+            firstName: p.firstName ?? p.first_name ?? '',
+            lastName: p.lastName ?? p.last_name ?? '',
+            documentNumber: p.documentNumber ?? p.document_number ?? '',
+            documentType: p.documentType ?? p.document_type ?? 'CI',
+          })),
+        });
+        return this.toTourMutationResponse(remote);
+      }
+
       const route = this.resolveVehicleRoute(item);
       const vehicle = this.requireVehicle(item);
       const vehiculoId = this.requireString(vehicle.vehiculoId ?? vehicle.vehiculo_id, 'vehicle.vehiculo_id');
@@ -189,6 +254,11 @@ export class IntegrationGrpcController {
         this.logger.log(`[confirm] FLIGHT provider_name=${flightRoute.name} remote_reservation_id=${remoteReservationId}`);
         return this.toFlightMutationResponse(await flightRoute.client.confirmarReservaVueloExterna(remoteReservationId));
       }
+      if (request.type === ProviderType.TOUR) {
+        const tourRoute = this.resolveTourRoute(request);
+        this.logger.log(`[confirm] TOUR provider_name=${tourRoute.name} remote_reservation_id=${remoteReservationId}`);
+        return this.toTourMutationResponse(await tourRoute.client.confirmarReservaAtraccionExterna(remoteReservationId));
+      }
       const route = this.resolveVehicleRoute(request);
       this.logger.log(`[confirm] provider_name=${route.name} provider_id=${this.providerId(request)} remote_reservation_id=${remoteReservationId}`);
       return this.toMutationResponse(await route.client.confirmarReservaExterna(remoteReservationId));
@@ -208,6 +278,11 @@ export class IntegrationGrpcController {
         const flightRoute = this.resolveFlightRoute(request);
         this.logger.log(`[cancel] FLIGHT provider_name=${flightRoute.name} remote_reservation_id=${remoteReservationId}`);
         return this.toFlightMutationResponse(await flightRoute.client.cancelarReservaVueloExterna(remoteReservationId, request.reason));
+      }
+      if (request.type === ProviderType.TOUR) {
+        const tourRoute = this.resolveTourRoute(request);
+        this.logger.log(`[cancel] TOUR provider_name=${tourRoute.name} remote_reservation_id=${remoteReservationId}`);
+        return this.toTourMutationResponse(await tourRoute.client.cancelarReservaAtraccionExterna(remoteReservationId, request.reason));
       }
       const route = this.resolveVehicleRoute(request);
       this.logger.log(`[cancel] provider_name=${route.name} provider_id=${this.providerId(request)} remote_reservation_id=${remoteReservationId}`);
@@ -229,6 +304,17 @@ export class IntegrationGrpcController {
         itemId,
         type: ProviderType.FLIGHT,
         providerItemId: item.flight?.flightClassId ?? item.flight?.flight_class_id ?? '',
+        available: true,
+        reason: '',
+      };
+    }
+
+    // TOUR: optimistic check — similar to flight, checking capacity atomically on create.
+    if (itemType === ProviderType.TOUR) {
+      return {
+        itemId,
+        type: ProviderType.TOUR,
+        providerItemId: item.tour?.slotId ?? item.tour?.slot_id ?? '',
         available: true,
         reason: '',
       };
@@ -276,7 +362,12 @@ export class IntegrationGrpcController {
 
   private resolveVehicleRoute(input: { type?: ProviderType; providerId?: string; provider_id?: string }): VehicleProviderRoute {
     if (input.type !== ProviderType.VEHICLE) {
-      throw new RpcException({ code: status.UNIMPLEMENTED, message: 'Solo ProviderType.VEHICLE esta implementado por ahora' });
+      // Guardia defensivo — los métodos públicos del controller ramifican por type
+      // ANTES de llamar a resolveVehicleRoute. Si caés acá hay un bug de routing.
+      throw new RpcException({
+        code: status.INTERNAL,
+        message: `resolveVehicleRoute invocado con type=${input.type}; bug de routing per-tipo`,
+      });
     }
 
     const providerId = this.providerId(input);
@@ -313,6 +404,13 @@ export class IntegrationGrpcController {
     return item.flight;
   }
 
+  private requireTour(item: BookingItem): TourDetails {
+    if (!item.tour) {
+      throw new ReservaInvalidaError('Integration', 'tour details son requeridos');
+    }
+    return item.tour;
+  }
+
   private toFlightMutationResponse(remote: ReservaVueloExternaDto) {
     return {
       type: ProviderType.FLIGHT,
@@ -320,6 +418,28 @@ export class IntegrationGrpcController {
       providerReservationCode: remote.reservationCode ?? remote.id,
       status: remote.status,
     };
+  }
+
+  private toTourMutationResponse(remote: ReservaAtraccionExternaDto) {
+    return {
+      type: ProviderType.TOUR,
+      remoteReservationId: remote.id,
+      providerReservationCode: remote.reservationCode ?? remote.id,
+      status: remote.status,
+    };
+  }
+
+  private resolveTourRoute(input: { type?: ProviderType; providerId?: string; provider_id?: string }): TourProviderRoute {
+    const providerId = this.providerId(input);
+    const routes: Record<string, TourProviderRoute> = {
+      [TOUR_PROVIDER_IDS.TERRAQUEST]: { key: 'TERRAQUEST', name: 'TerraQuest', client: this.terraQuest },
+      [TOUR_PROVIDER_IDS.VENTURO]:    { key: 'VENTURO',    name: 'Venturo',    client: this.venturo },
+      [TOUR_PROVIDER_IDS.CATS]:       { key: 'CATS',       name: 'AtraccionCaTs', client: this.atraccionCats },
+      [TOUR_PROVIDER_IDS.NEXTSTOP]:   { key: 'NEXTSTOP',   name: 'NextStop',   client: this.nextStop },
+    };
+    const route = routes[providerId];
+    if (!route) throw new ProveedorNoSoportadoError(providerId);
+    return route;
   }
 
   private toMutationResponse(remote: ReservaExternaDto) {

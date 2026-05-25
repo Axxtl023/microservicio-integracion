@@ -129,7 +129,11 @@ export class AeroWillyClient implements IAeroWillyClient {
       if (reason) this.logger.log(`[AeroWilly] Cancelando reserva ${id}. Razón: ${reason}`);
       const res = await this.http.patch(`/reservations/${id}/cancel`, {});
       const body = res.data?.data ?? res.data;
-      return this.toReservaDto(body as Record<string, unknown>);
+      return {
+        id,
+        reservationCode: body?.reservationCode ? String(body.reservationCode) : undefined,
+        status: 'CANCELLED',
+      };
     } catch (err) {
       this.logger.error(`[AeroWilly] Error cancelando reserva ${id}`, err);
       throw mapHttpToDomainError(err, 'AeroWilly', 'No se pudo cancelar la reserva de vuelo');

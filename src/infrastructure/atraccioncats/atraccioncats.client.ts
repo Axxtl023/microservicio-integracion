@@ -2,6 +2,9 @@ import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
 import axios, { type AxiosInstance } from 'axios';
 import type { IAtraccionCaTsClient } from './i-atraccioncats.client';
 import type { Atraccion, Product, PriceTier } from '../../interfaces/atracciones.interface';
+import type { CrearReservaAtraccionExternaDto } from '../../business/atracciones/dtos/crear-reserva-atraccion-externa.dto';
+import type { ReservaAtraccionExternaDto } from '../../business/atracciones/dtos/reserva-atraccion-externa.dto';
+import { mapHttpToDomainError } from '../../business/vehiculos/errors/map-http-error';
 
 @Injectable()
 export class AtraccionCaTsClient implements IAtraccionCaTsClient {
@@ -9,7 +12,6 @@ export class AtraccionCaTsClient implements IAtraccionCaTsClient {
   private readonly http:   AxiosInstance;
 
   constructor() {
-    // La API de AtraccionCaTs es pública — no requiere token de autenticación.
     this.http = axios.create({
       baseURL: process.env.ATRACCIONCATS_API_URL ?? '',
       timeout: 15_000,
@@ -40,7 +42,6 @@ export class AtraccionCaTsClient implements IAtraccionCaTsClient {
         params: { pageNumber: 1, pageSize: 1000 },
       });
 
-      // Envelope: { success, data: { items: [...], totalCount } }
       const items: unknown[] =
         res.data?.data?.items ?? res.data?.data ?? res.data ?? [];
 
@@ -67,7 +68,6 @@ export class AtraccionCaTsClient implements IAtraccionCaTsClient {
 
       const atraccion = this.mapRaw(raw as Record<string, unknown>);
 
-      // Fetch price options using the attraction's ID (sequential — need ID from step 1)
       try {
         const optRes = await this.http.get(
           `/api/v1/productoption/by-attraction/${atraccion.id}`,
@@ -95,8 +95,36 @@ export class AtraccionCaTsClient implements IAtraccionCaTsClient {
           });
         }
       } catch {
-        // Opciones de precio son opcionales — no impiden retornar el detalle
         this.logger.warn(`[AtraccionCaTs] No se pudieron obtener opciones para "${atraccion.id}"`);
+      }
+
+      // Fetch daily availability slots
+      try {
+        const availRes = await this.http.get(
+          '/api/v1/booking/disponibilidad',
+          { params: { attractionId: atraccion.id } }
+        );
+        const days: unknown = availRes.data?.data?.items ?? availRes.data?.data ?? availRes.data;
+
+        const slots: any[] = [];
+        if (Array.isArray(days)) {
+          for (const day of days) {
+            const d = day as Record<string, any>;
+            if (d.horarios && Array.isArray(d.horarios)) {
+              for (const h of d.horarios) {
+                slots.push({
+                  slotId: String(h.slotId || h.id),
+                  fecha: String(d.fecha),
+                  horaInicio: String(h.horaInicio),
+                  cuposDisponibles: Number(h.cuposDisponibles ?? 0),
+                });
+              }
+            }
+          }
+        }
+        (atraccion as any).slots = slots;
+      } catch (err) {
+        this.logger.warn(`[AtraccionCaTs] No se pudieron obtener slots de disponibilidad para "${atraccion.id}"`);
       }
 
       return atraccion;
@@ -104,6 +132,63 @@ export class AtraccionCaTsClient implements IAtraccionCaTsClient {
       if (axios.isAxiosError(err) && err.response?.status === 404) return null;
       this.logger.error(`[AtraccionCaTs] Error al obtener atracción por slug: ${slug}`, err);
       throw new ServiceUnavailableException('No se pudo conectar con AtraccionCaTs');
+    }
+  }
+
+  async crearReservaAtraccionExterna(data: CrearReservaAtraccionExternaDto): Promise<ReservaAtraccionExternaDto> {
+    try {
+      const payload = {
+        slotId: data.slotId,
+        attractionId: data.attractionId,
+        productOptionId: data.productOptionId,
+        contactName: data.contactName || 'Invitado',
+        contactEmail: data.contactEmail || 'invitado@email.com',
+        tickets: data.passengers.map((p) => ({
+          priceTierId: data.productOptionId,
+          firstName: p.firstName,
+          lastName: p.lastName,
+          documentNumber: p.documentNumber,
+          documentType: p.documentType || 'CI',
+        })),
+        billing: {
+          customerName: data.contactName || 'Invitado',
+          taxId: data.passengers[0]?.documentNumber || '0000000000',
+          email: data.contactEmail || 'invitado@email.com',
+          address: 'Ecuador',
+        },
+        notas: 'Reserva centralizada',
+      };
+
+      const res = await this.http.post('/api/v1/booking', payload);
+      const resBody = res.data?.data ?? res.data;
+
+      return {
+        id: String(resBody.bookingId),
+        reservationCode: String(resBody.pnrCode || ''),
+        status: 'CONFIRMED',
+      };
+    } catch (err) {
+      this.logger.error('[AtraccionCaTs] Error creando reserva de atracción', err);
+      throw mapHttpToDomainError(err, 'AtraccionCaTs', 'No se pudo crear la reserva de atracción');
+    }
+  }
+
+  async confirmarReservaAtraccionExterna(id: string): Promise<ReservaAtraccionExternaDto> {
+    this.logger.log(`[AtraccionCaTs] confirm no-op para reserva ${id}`);
+    return { id, status: 'CONFIRMED' };
+  }
+
+  async cancelarReservaAtraccionExterna(id: string, reason?: string): Promise<ReservaAtraccionExternaDto> {
+    try {
+      if (reason) this.logger.log(`[AtraccionCaTs] Cancelando reserva ${id}. Razón: ${reason}`);
+      await this.http.post(`/api/v1/booking/${id}/cancel`, {});
+      return {
+        id,
+        status: 'CANCELLED',
+      };
+    } catch (err) {
+      this.logger.error(`[AtraccionCaTs] Error cancelando reserva ${id}`, err);
+      throw mapHttpToDomainError(err, 'AtraccionCaTs', 'No se pudo cancelar la reserva de atracción');
     }
   }
 }

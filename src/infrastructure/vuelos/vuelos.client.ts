@@ -97,7 +97,11 @@ export class VuelosClient implements IVuelosClient {
       if (reason) this.logger.log(`[${PROV}] Cancelando reserva ${id}. Razón: ${reason}`);
       const res = await this.http.patch(`/reservations/${id}/cancel`, {});
       const body = res.data?.data ?? res.data;
-      return this.toReservaDto(body);
+      return {
+        id,
+        reservationCode: body?.reservationCode ? String(body.reservationCode) : undefined,
+        status: 'CANCELLED',
+      };
     } catch (err) {
       this.logger.error(`[${PROV}] Error cancelando reserva ${id}`, err);
       throw mapHttpToDomainError(err, PROV, 'No se pudo cancelar la reserva de vuelo');
