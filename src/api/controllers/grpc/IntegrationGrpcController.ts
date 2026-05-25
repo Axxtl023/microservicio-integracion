@@ -17,7 +17,6 @@ import {
   ReservaNoEncontradaError,
 } from '../../../business/vehiculos/errors/vehiculos.errors';
 import { VEHICLE_PROVIDER_IDS, type VehicleProviderKey } from '../../../business/vehiculos/provider-routing';
-<<<<<<< HEAD
 
 // Hoteles
 import { HOTEL_PROVIDER_IDS, type HotelProviderKey } from '../../../business/hoteles/hotel-provider-routing';
@@ -27,7 +26,7 @@ import { IHOMIYA_CLIENT } from '../../../infrastructure/homiya/i-homiya.client';
 import { IRODRIGOS_CLIENT } from '../../../infrastructure/rodrigos/i-rodrigos.client';
 import { IHOUSING_PLACE_CLIENT } from '../../../infrastructure/housing-place/i-housing-place.client';
 import { IALOJAEXPRESS_CLIENT } from '../../../infrastructure/aloja-express/i-aloja-express.client';
-=======
+
 import type { ReservaExternaDto } from '../../../business/vehiculos/dtos/reserva-externa.dto';
 import type { IReservaExternaVueloClient } from '../../../business/vuelos/i-reserva-externa-vuelo.client';
 import { FLIGHT_PROVIDER_IDS, type FlightProviderKey } from '../../../business/vuelos/flight-provider-routing';
@@ -38,13 +37,12 @@ import { IAEROCORE_CLIENT } from '../../../infrastructure/aerocore/i-aerocore.cl
 import type { ReservaVueloExternaDto } from '../../../business/vuelos/dtos/reserva-vuelo-externa.dto';
 
 import type { IReservaExternaAtraccionClient } from '../../../business/atracciones/i-reserva-externa-atraccion.client';
-import { TOUR_PROVIDER_IDS, resolveTourProvider, type TourProviderKey } from '../../../business/atracciones/tour-provider-routing';
+import { TOUR_PROVIDER_IDS, type TourProviderKey } from '../../../business/atracciones/tour-provider-routing';
 import { IATRACCIONES_CLIENT } from '../../../infrastructure/atracciones/i-atracciones.client';
 import { IATRACCIONCATS_CLIENT } from '../../../infrastructure/atraccioncats/i-atraccioncats.client';
 import { IVENTURO_CLIENT } from '../../../infrastructure/venturo/i-venturo.client';
 import { INEXTSTOP_CLIENT } from '../../../infrastructure/nextstop/i-nextstop.client';
 import type { ReservaAtraccionExternaDto } from '../../../business/atracciones/dtos/reserva-atraccion-externa.dto';
->>>>>>> feature/integracion-grpc-vehiculos
 
 enum ProviderType {
   PROVIDER_TYPE_UNSPECIFIED = 0,
@@ -69,7 +67,6 @@ interface VehicleDetails {
   fecha_fin?: ProtoTimestamp;
 }
 
-<<<<<<< HEAD
 interface HotelDetails {
   alojamientoId?: string;
   alojamiento_id?: string;
@@ -79,7 +76,8 @@ interface HotelDetails {
   fecha_inicio?: ProtoTimestamp;
   fechaFin?: ProtoTimestamp;
   fecha_fin?: ProtoTimestamp;
-=======
+}
+
 interface FlightPassenger {
   firstName?: string;
   first_name?: string;
@@ -120,7 +118,6 @@ interface TourDetails {
   contact_name?: string;
   contactEmail?: string;
   contact_email?: string;
->>>>>>> feature/integracion-grpc-vehiculos
 }
 
 interface BookingItem {
@@ -132,12 +129,9 @@ interface BookingItem {
   providerId?: string;
   provider_id?: string;
   vehicle?: VehicleDetails;
-<<<<<<< HEAD
   hotel?: HotelDetails;
-=======
   flight?: FlightDetails;
   tour?: TourDetails;
->>>>>>> feature/integracion-grpc-vehiculos
 }
 
 interface CheckBatchAvailabilityRequest {
@@ -168,12 +162,12 @@ interface VehicleProviderRoute {
   client: IReservaExternaClient;
 }
 
-<<<<<<< HEAD
 interface HotelProviderRoute {
   key: HotelProviderKey;
   name: string;
   client: IReservaHotelClient;
-=======
+}
+
 interface FlightProviderRoute {
   key: FlightProviderKey;
   name: string;
@@ -184,7 +178,6 @@ interface TourProviderRoute {
   key: TourProviderKey;
   name: string;
   client: IReservaExternaAtraccionClient;
->>>>>>> feature/integracion-grpc-vehiculos
 }
 
 @Controller()
@@ -197,7 +190,6 @@ export class IntegrationGrpcController {
     @Inject(IRENTWHEELS_CLIENT) private readonly rentwheels: IReservaExternaClient,
     @Inject(IDRIVEX_CLIENT) private readonly drivex: IReservaExternaClient,
     @Inject(IZENITH_DRIVE_CLIENT) private readonly zenithDrive: IReservaExternaClient,
-<<<<<<< HEAD
 
     // Hoteles
     @Inject(IHOTELES_CLIENT) private readonly locus: IReservaHotelClient,
@@ -205,7 +197,7 @@ export class IntegrationGrpcController {
     @Inject(IRODRIGOS_CLIENT) private readonly rodrigos: IReservaHotelClient,
     @Inject(IHOUSING_PLACE_CLIENT) private readonly housingPlace: IReservaHotelClient,
     @Inject(IALOJAEXPRESS_CLIENT) private readonly alojaExpress: IReservaHotelClient,
-=======
+
     @Inject(IVUELOS_CLIENT) private readonly vuelosApp: IReservaExternaVueloClient,
     @Inject(ISKYBOOK_CLIENT) private readonly skybook: IReservaExternaVueloClient,
     @Inject(IAEROWI_LLY_CLIENT) private readonly aeroWilly: IReservaExternaVueloClient,
@@ -214,7 +206,6 @@ export class IntegrationGrpcController {
     @Inject(IATRACCIONCATS_CLIENT) private readonly atraccionCats: IReservaExternaAtraccionClient,
     @Inject(IVENTURO_CLIENT) private readonly venturo: IReservaExternaAtraccionClient,
     @Inject(INEXTSTOP_CLIENT) private readonly nextStop: IReservaExternaAtraccionClient,
->>>>>>> feature/integracion-grpc-vehiculos
   ) {}
 
   @GrpcMethod('IntegrationService', 'CheckBatchAvailability')
@@ -231,8 +222,6 @@ export class IntegrationGrpcController {
     try {
       const item = this.requireItem(request.item);
       const itemType = item.type ?? ProviderType.PROVIDER_TYPE_UNSPECIFIED;
-<<<<<<< HEAD
-=======
 
       if (itemType === ProviderType.FLIGHT) {
         const flightRoute = this.resolveFlightRoute(item);
@@ -271,12 +260,6 @@ export class IntegrationGrpcController {
         });
         return this.toTourMutationResponse(remote);
       }
-
-      const route = this.resolveVehicleRoute(item);
-      const vehicle = this.requireVehicle(item);
-      const vehiculoId = this.requireString(vehicle.vehiculoId ?? vehicle.vehiculo_id, 'vehicle.vehiculo_id');
-      this.logger.log(`[create] provider_name=${route.name} provider_id=${this.providerId(item)} vehicle_id=${vehiculoId}`);
->>>>>>> feature/integracion-grpc-vehiculos
 
       if (itemType === ProviderType.VEHICLE) {
         const route = this.resolveVehicleRoute(item);
