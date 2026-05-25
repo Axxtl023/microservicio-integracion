@@ -43,6 +43,8 @@ import { RodrigosClient } from './infrastructure/rodrigos/rodrigos.client';
 import { IRODRIGOS_CLIENT } from './infrastructure/rodrigos/i-rodrigos.client';
 import { HousingPlaceClient } from './infrastructure/housing-place/housing-place.client';
 import { IHOUSING_PLACE_CLIENT } from './infrastructure/housing-place/i-housing-place.client';
+import { AlojaExpressClient } from './infrastructure/aloja-express/aloja-express.client';
+import { IALOJAEXPRESS_CLIENT } from './infrastructure/aloja-express/i-aloja-express.client';
 import { HotelesService } from './business/hoteles/hoteles.service';
 import { IHOTELES_SERVICE } from './business/hoteles/interfaces/i-hoteles.service';
 import { HotelesController } from './api/controllers/v1/HotelesController';
@@ -142,7 +144,11 @@ import { HotelesController } from './api/controllers/v1/HotelesController';
     HousingPlaceClient,
     { provide: IHOUSING_PLACE_CLIENT, useExisting: HousingPlaceClient },
 
-    // ── Servicio de hoteles (agrega Locus + Homiya + Rodrigo's + HousingPlace) ─
+    // ── AlojaExpress ──────────────────────────────────────────────────────────
+    AlojaExpressClient,
+    { provide: IALOJAEXPRESS_CLIENT, useExisting: AlojaExpressClient },
+
+    // ── Servicio de hoteles (Locus + Homiya + Rodrigo's + HousingPlace + AlojaExpress) ─
     HotelesService,
     { provide: IHOTELES_SERVICE, useExisting: HotelesService },
   ],

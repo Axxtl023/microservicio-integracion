@@ -9,6 +9,8 @@ import type { IRodrigosClient } from '../../infrastructure/rodrigos/i-rodrigos.c
 import { IRODRIGOS_CLIENT } from '../../infrastructure/rodrigos/i-rodrigos.client';
 import type { IHousingPlaceClient } from '../../infrastructure/housing-place/i-housing-place.client';
 import { IHOUSING_PLACE_CLIENT } from '../../infrastructure/housing-place/i-housing-place.client';
+import type { IAlojaExpressClient } from '../../infrastructure/aloja-express/i-aloja-express.client';
+import { IALOJAEXPRESS_CLIENT } from '../../infrastructure/aloja-express/i-aloja-express.client';
 import type { Hotel, Habitacion, HabitacionUnificada, PaginatedHoteles } from '../../interfaces/hoteles.interface';
 
 @Injectable()
@@ -20,6 +22,7 @@ export class HotelesService implements IHotelesService {
     @Inject(IHOMIYA_CLIENT)        private readonly homiya:        IHomiyaClient,
     @Inject(IRODRIGOS_CLIENT)      private readonly rodrigos:      IRodrigosClient,
     @Inject(IHOUSING_PLACE_CLIENT) private readonly housingPlace:  IHousingPlaceClient,
+    @Inject(IALOJAEXPRESS_CLIENT)  private readonly alojaExpress:  IAlojaExpressClient,
   ) {}
 
   private normalizarHabitaciones(raws: Habitacion[]): HabitacionUnificada[] {
@@ -66,21 +69,38 @@ export class HotelesService implements IHotelesService {
     };
   }
 
+  private mapAlojaExpress(raw: Record<string, unknown>): Hotel {
+    return {
+      alojamientoId:        Number(raw.alojamientoId        ?? 0),
+      nombre:               String(raw.nombre               ?? 'Alojamiento'),
+      ciudad:               String(raw.ciudad               ?? ''),
+      direccion:            String(raw.direccion            ?? ''),
+      descripcion:          (raw.descripcion as string | null) ?? null,
+      estrellas:            raw.estrellas != null ? Number(raw.estrellas) : null,
+      calificacionPromedio: Number(raw.calificacionPromedio ?? 0),
+      admiteMascotas:       Boolean(raw.admiteMascotas      ?? false),
+      tienePiscina:         Boolean(raw.tienePiscina        ?? false),
+      tieneParqueadero:     Boolean(raw.tieneParqueadero    ?? false),
+    };
+  }
+
   async listar(params: ListarHotelesParams): Promise<PaginatedHoteles> {
     const page  = Math.max(1, params.page  ?? 1);
     const limit = Math.max(1, params.limit ?? 10);
 
-    const [locusResult, homiyaResult, rodrigosResult, housingPlaceResult] = await Promise.allSettled([
+    const [locusResult, homiyaResult, rodrigosResult, housingPlaceResult, alojaExpressResult] = await Promise.allSettled([
       this.locus.getHoteles(),
       this.homiya.getHoteles(),
       this.rodrigos.getHoteles(),
       this.housingPlace.getAlojamientos(),
+      this.alojaExpress.getAlojamientos(),
     ]);
 
     if (locusResult.status        === 'rejected') this.logger.error('[Locus] Error al obtener hoteles',        locusResult.reason);
     if (homiyaResult.status       === 'rejected') this.logger.error('[Homiya] Error al obtener hoteles',       homiyaResult.reason);
     if (rodrigosResult.status     === 'rejected') this.logger.error("[Rodrigo's] Error al obtener hoteles",    rodrigosResult.reason);
     if (housingPlaceResult.status === 'rejected') this.logger.error('[HousingPlace] Error al obtener hoteles', housingPlaceResult.reason);
+    if (alojaExpressResult.status === 'rejected') this.logger.error('[AlojaExpress] Error al obtener hoteles', alojaExpressResult.reason);
 
     const locusRaw    = locusResult.status    === 'fulfilled' ? locusResult.value    : [];
     const homiyaRaw   = homiyaResult.status   === 'fulfilled' ? homiyaResult.value   : [];
@@ -89,14 +109,23 @@ export class HotelesService implements IHotelesService {
     const rawHousingValue = housingPlaceResult.status === 'fulfilled' ? housingPlaceResult.value : [];
     const housingPlaceRaw: Record<string, unknown>[] = Array.isArray(rawHousingValue) ? rawHousingValue : [];
 
+    const rawAlojaExpressValue = alojaExpressResult.status === 'fulfilled' ? alojaExpressResult.value : [];
+    const alojaExpressRaw: Record<string, unknown>[] = Array.isArray(rawAlojaExpressValue) ? rawAlojaExpressValue : [];
+
     this.logger.log(
       `[HousingPlace] ${housingPlaceRaw.length} ítems recibidos del cliente` +
       (housingPlaceRaw.length > 0
         ? ` · claves del primer ítem: [${Object.keys(housingPlaceRaw[0]).join(', ')}]`
         : ' · array vacío'),
     );
+    this.logger.log(
+      `[AlojaExpress] ${alojaExpressRaw.length} ítems recibidos del cliente` +
+      (alojaExpressRaw.length > 0
+        ? ` · claves del primer ítem: [${Object.keys(alojaExpressRaw[0]).join(', ')}]`
+        : ' · array vacío'),
+    );
 
-    const [locusSettled, rodrigosSettled, housingPlaceSettled] = await Promise.allSettled([
+    const [locusSettled, rodrigosSettled, housingPlaceSettled, alojaExpressSettled] = await Promise.allSettled([
       Promise.all(
         locusRaw.map(async (h) => {
           const habs       = await this.locus.getHabitacionesPorAlojamiento(h.alojamientoId);
@@ -128,15 +157,30 @@ export class HotelesService implements IHotelesService {
           return { ...mapped, precioBase, proveedor: 'HousingPlace' };
         }),
       ),
+      Promise.all(
+        alojaExpressRaw.map(async (rawHotel) => {
+          const mapped     = this.mapAlojaExpress(rawHotel);
+          const habs       = await this.alojaExpress.getHabitacionesPorAlojamiento(mapped.alojamientoId);
+          const unificadas = (habs as unknown as Record<string, unknown>[]).map((r) => ({
+            precioNoche: Number(r.precioNoche) || 0,
+          }));
+          const precioBase = unificadas.length > 0
+            ? Math.min(...unificadas.map((u) => u.precioNoche))
+            : 40;
+          return { ...mapped, precioBase, proveedor: 'AlojaExpress' };
+        }),
+      ),
     ]);
 
     if (locusSettled.status        === 'rejected') this.logger.error('[Locus] Error al procesar hoteles',        locusSettled.reason);
     if (rodrigosSettled.status     === 'rejected') this.logger.error("[Rodrigo's] Error al procesar hoteles",    rodrigosSettled.reason);
     if (housingPlaceSettled.status === 'rejected') this.logger.error('[HousingPlace] Error al procesar hoteles', housingPlaceSettled.reason);
+    if (alojaExpressSettled.status === 'rejected') this.logger.error('[AlojaExpress] Error al procesar hoteles', alojaExpressSettled.reason);
 
     const locusItems        = locusSettled.status        === 'fulfilled' ? locusSettled.value        : [];
     const rodrigosItems     = rodrigosSettled.status     === 'fulfilled' ? rodrigosSettled.value     : [];
     const housingPlaceItems = housingPlaceSettled.status === 'fulfilled' ? housingPlaceSettled.value : [];
+    const alojaExpressItems = alojaExpressSettled.status === 'fulfilled' ? alojaExpressSettled.value : [];
 
     const homiyaItems: Hotel[] = await Promise.all(
       homiyaRaw.map(async (h) => {
@@ -150,10 +194,10 @@ export class HotelesService implements IHotelesService {
     );
 
     this.logger.log(
-      `[Locus] ${locusItems.length} | [Homiya] ${homiyaItems.length} | [Rodrigo's] ${rodrigosItems.length} | [HousingPlace] ${housingPlaceItems.length} hoteles`,
+      `[Locus] ${locusItems.length} | [Homiya] ${homiyaItems.length} | [Rodrigo's] ${rodrigosItems.length} | [HousingPlace] ${housingPlaceItems.length} | [AlojaExpress] ${alojaExpressItems.length} hoteles`,
     );
 
-    const all        = [...locusItems, ...homiyaItems, ...rodrigosItems, ...housingPlaceItems];
+    const all        = [...locusItems, ...homiyaItems, ...rodrigosItems, ...housingPlaceItems, ...alojaExpressItems];
     const total      = all.length;
     const totalPages = Math.max(1, Math.ceil(total / limit));
     const safePage   = Math.min(page, totalPages);
@@ -163,6 +207,26 @@ export class HotelesService implements IHotelesService {
   }
 
   async obtenerPorId(id: number, proveedor?: string): Promise<Hotel> {
+    if (proveedor === 'AlojaExpress') {
+      const raw = await this.alojaExpress.getAlojamientoById(id);
+      if (raw) {
+        const mapped          = this.mapAlojaExpress(raw);
+        const habitacionesRaw = await this.alojaExpress.getHabitacionesPorAlojamiento(id);
+        const habitaciones: HabitacionUnificada[] = (habitacionesRaw as unknown as Record<string, unknown>[]).map((r) => ({
+          id:             String(r.habitacionId ?? 0),
+          nombre:         String(r.nombre       ?? 'Habitación'),
+          precioNoche:    Number(r.precioNoche)  || 0,
+          capacidadTotal: Number(r.capacidadAdultos ?? 0) + Number(r.capacidadNinos ?? 0),
+          disponible:     true,
+        }));
+        const precioBase = habitaciones.length > 0
+          ? Math.min(...habitaciones.map((h) => h.precioNoche))
+          : (mapped.precioBase ?? 40);
+        return { ...mapped, precioBase, proveedor: 'AlojaExpress', habitaciones };
+      }
+      throw new NotFoundException(`Hotel AlojaExpress con id "${id}" no encontrado`);
+    }
+
     if (proveedor === 'HousingPlace') {
       const housingPlaceRaw = await this.housingPlace.getAlojamientoById(id);
       if (housingPlaceRaw) {
@@ -216,17 +280,20 @@ export class HotelesService implements IHotelesService {
       throw new NotFoundException(`Hotel Rodrigo's con id "${id}" no encontrado`);
     }
 
-    const [locusResult, homiyaResult, rodrigosResult, housingPlaceResult] = await Promise.allSettled([
+    // Fallback: scan all providers concurrently (no proveedor specified)
+    const [locusResult, homiyaResult, rodrigosResult, housingPlaceResult, alojaExpressResult] = await Promise.allSettled([
       this.locus.getHotelById(id),
       this.homiya.getHotelById(id),
       this.rodrigos.getHotelById(id),
       this.housingPlace.getAlojamientoById(id),
+      this.alojaExpress.getAlojamientoById(id),
     ]);
 
     const locusRaw        = locusResult.status        === 'fulfilled' ? locusResult.value        : null;
     const homiyaRaw       = homiyaResult.status       === 'fulfilled' ? homiyaResult.value       : null;
     const rodrigosRaw     = rodrigosResult.status     === 'fulfilled' ? rodrigosResult.value     : null;
     const housingPlaceRaw = housingPlaceResult.status === 'fulfilled' ? housingPlaceResult.value : null;
+    const alojaExpressRaw = alojaExpressResult.status === 'fulfilled' ? alojaExpressResult.value : null;
 
     if (locusRaw) {
       const habitacionesRaw = await this.locus.getHabitacionesPorAlojamiento(id);
@@ -269,6 +336,22 @@ export class HotelesService implements IHotelesService {
         ? Math.min(...habitaciones.map((h) => h.precioNoche))
         : (mapped.precioBase ?? 40);
       return { ...mapped, precioBase, proveedor: 'HousingPlace', habitaciones };
+    }
+
+    if (alojaExpressRaw) {
+      const mapped          = this.mapAlojaExpress(alojaExpressRaw);
+      const habitacionesRaw = await this.alojaExpress.getHabitacionesPorAlojamiento(id);
+      const habitaciones: HabitacionUnificada[] = (habitacionesRaw as unknown as Record<string, unknown>[]).map((r) => ({
+        id:             String(r.habitacionId ?? 0),
+        nombre:         String(r.nombre       ?? 'Habitación'),
+        precioNoche:    Number(r.precioNoche)  || 0,
+        capacidadTotal: Number(r.capacidadAdultos ?? 0) + Number(r.capacidadNinos ?? 0),
+        disponible:     true,
+      }));
+      const precioBase = habitaciones.length > 0
+        ? Math.min(...habitaciones.map((h) => h.precioNoche))
+        : (mapped.precioBase ?? 40);
+      return { ...mapped, precioBase, proveedor: 'AlojaExpress', habitaciones };
     }
 
     throw new NotFoundException(`Hotel con id "${id}" no encontrado en ningún proveedor`);
