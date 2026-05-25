@@ -16,6 +16,13 @@ import {
 } from '../../../business/vehiculos/errors/vehiculos.errors';
 import { VEHICLE_PROVIDER_IDS, type VehicleProviderKey } from '../../../business/vehiculos/provider-routing';
 import type { ReservaExternaDto } from '../../../business/vehiculos/dtos/reserva-externa.dto';
+import type { IReservaExternaVueloClient } from '../../../business/vuelos/i-reserva-externa-vuelo.client';
+import { FLIGHT_PROVIDER_IDS, type FlightProviderKey } from '../../../business/vuelos/flight-provider-routing';
+import { IVUELOS_CLIENT } from '../../../infrastructure/vuelos/i-vuelos.client';
+import { ISKYBOOK_CLIENT } from '../../../infrastructure/skybook/i-skybook.client';
+import { IAEROWI_LLY_CLIENT } from '../../../infrastructure/aerowilly/i-aerowilly.client';
+import { IAEROCORE_CLIENT } from '../../../infrastructure/aerocore/i-aerocore.client';
+import type { ReservaVueloExternaDto } from '../../../business/vuelos/dtos/reserva-vuelo-externa.dto';
 
 enum ProviderType {
   PROVIDER_TYPE_UNSPECIFIED = 0,
@@ -40,6 +47,23 @@ interface VehicleDetails {
   fecha_fin?: ProtoTimestamp;
 }
 
+interface FlightPassenger {
+  firstName?: string;
+  first_name?: string;
+  lastName?: string;
+  last_name?: string;
+  documentNumber?: string;
+  document_number?: string;
+  seatNumber?: string;
+  seat_number?: string;
+}
+
+interface FlightDetails {
+  flightClassId?: string;
+  flight_class_id?: string;
+  passengers?: FlightPassenger[];
+}
+
 interface BookingItem {
   itemId?: string;
   item_id?: string;
@@ -49,6 +73,7 @@ interface BookingItem {
   providerId?: string;
   provider_id?: string;
   vehicle?: VehicleDetails;
+  flight?: FlightDetails;
 }
 
 interface CheckBatchAvailabilityRequest {
@@ -79,6 +104,12 @@ interface VehicleProviderRoute {
   client: IReservaExternaClient;
 }
 
+interface FlightProviderRoute {
+  key: FlightProviderKey;
+  name: string;
+  client: IReservaExternaVueloClient;
+}
+
 @Controller()
 export class IntegrationGrpcController {
   private readonly logger = new Logger(IntegrationGrpcController.name);
@@ -89,6 +120,10 @@ export class IntegrationGrpcController {
     @Inject(IRENTWHEELS_CLIENT) private readonly rentwheels: IReservaExternaClient,
     @Inject(IDRIVEX_CLIENT) private readonly drivex: IReservaExternaClient,
     @Inject(IZENITH_DRIVE_CLIENT) private readonly zenithDrive: IReservaExternaClient,
+    @Inject(IVUELOS_CLIENT) private readonly vuelosApp: IReservaExternaVueloClient,
+    @Inject(ISKYBOOK_CLIENT) private readonly skybook: IReservaExternaVueloClient,
+    @Inject(IAEROWI_LLY_CLIENT) private readonly aeroWilly: IReservaExternaVueloClient,
+    @Inject(IAEROCORE_CLIENT) private readonly aeroCore: IReservaExternaVueloClient,
   ) {}
 
   @GrpcMethod('IntegrationService', 'CheckBatchAvailability')
@@ -104,6 +139,25 @@ export class IntegrationGrpcController {
   async createRemoteReservation(request: CreateRemoteReservationRequest) {
     try {
       const item = this.requireItem(request.item);
+      const itemType = item.type ?? ProviderType.PROVIDER_TYPE_UNSPECIFIED;
+
+      if (itemType === ProviderType.FLIGHT) {
+        const flightRoute = this.resolveFlightRoute(item);
+        const flight = this.requireFlight(item);
+        const flightClassId = this.requireString(flight.flightClassId ?? flight.flight_class_id, 'flight.flight_class_id');
+        this.logger.log(`[create] FLIGHT provider_name=${flightRoute.name} provider_id=${this.providerId(item)} flight_class_id=${flightClassId}`);
+        const remote = await flightRoute.client.crearReservaVueloExterna({
+          flightClassId,
+          passengers: (flight.passengers ?? []).map((p) => ({
+            firstName: p.firstName ?? p.first_name ?? '',
+            lastName: p.lastName ?? p.last_name ?? '',
+            documentNumber: p.documentNumber ?? p.document_number ?? '',
+            seatNumber: p.seatNumber ?? p.seat_number ?? undefined,
+          })),
+        });
+        return this.toFlightMutationResponse(remote);
+      }
+
       const route = this.resolveVehicleRoute(item);
       const vehicle = this.requireVehicle(item);
       const vehiculoId = this.requireString(vehicle.vehiculoId ?? vehicle.vehiculo_id, 'vehicle.vehiculo_id');
@@ -126,11 +180,16 @@ export class IntegrationGrpcController {
   @GrpcMethod('IntegrationService', 'ConfirmRemoteReservation')
   async confirmRemoteReservation(request: ConfirmRemoteReservationRequest) {
     try {
-      const route = this.resolveVehicleRoute(request);
       const remoteReservationId = this.requireString(
         request.remoteReservationId ?? request.remote_reservation_id,
         'remote_reservation_id',
       );
+      if (request.type === ProviderType.FLIGHT) {
+        const flightRoute = this.resolveFlightRoute(request);
+        this.logger.log(`[confirm] FLIGHT provider_name=${flightRoute.name} remote_reservation_id=${remoteReservationId}`);
+        return this.toFlightMutationResponse(await flightRoute.client.confirmarReservaVueloExterna(remoteReservationId));
+      }
+      const route = this.resolveVehicleRoute(request);
       this.logger.log(`[confirm] provider_name=${route.name} provider_id=${this.providerId(request)} remote_reservation_id=${remoteReservationId}`);
       return this.toMutationResponse(await route.client.confirmarReservaExterna(remoteReservationId));
     } catch (error) {
@@ -141,11 +200,16 @@ export class IntegrationGrpcController {
   @GrpcMethod('IntegrationService', 'CancelRemoteReservation')
   async cancelRemoteReservation(request: CancelRemoteReservationRequest) {
     try {
-      const route = this.resolveVehicleRoute(request);
       const remoteReservationId = this.requireString(
         request.remoteReservationId ?? request.remote_reservation_id,
         'remote_reservation_id',
       );
+      if (request.type === ProviderType.FLIGHT) {
+        const flightRoute = this.resolveFlightRoute(request);
+        this.logger.log(`[cancel] FLIGHT provider_name=${flightRoute.name} remote_reservation_id=${remoteReservationId}`);
+        return this.toFlightMutationResponse(await flightRoute.client.cancelarReservaVueloExterna(remoteReservationId, request.reason));
+      }
+      const route = this.resolveVehicleRoute(request);
       this.logger.log(`[cancel] provider_name=${route.name} provider_id=${this.providerId(request)} remote_reservation_id=${remoteReservationId}`);
       return this.toMutationResponse(await route.client.cancelarReservaExterna(remoteReservationId, request.reason));
     } catch (error) {
@@ -157,16 +221,26 @@ export class IntegrationGrpcController {
     const itemId = item.itemId ?? item.item_id ?? '';
     const itemType = item.type ?? ProviderType.PROVIDER_TYPE_UNSPECIFIED;
 
-    // Si el tipo no es VEHICLE, no rompemos el batch entero — devolvemos
-    // available=false para ese item y dejamos que los vehículos sigan.
-    // Cuando se sumen FLIGHT/HOTEL/TOUR, este bloque enruta al service correcto.
+    // FLIGHT: optimistic check — la validación real de asientos ocurre en
+    // crearReservaVueloExterna (atómica en el proveedor). Si no hay asientos,
+    // el create falla con 422 y la saga compensa.
+    if (itemType === ProviderType.FLIGHT) {
+      return {
+        itemId,
+        type: ProviderType.FLIGHT,
+        providerItemId: item.flight?.flightClassId ?? item.flight?.flight_class_id ?? '',
+        available: true,
+        reason: '',
+      };
+    }
+
     if (itemType !== ProviderType.VEHICLE) {
       return {
         itemId,
         type: itemType,
         providerItemId: '',
         available: false,
-        reason: 'NOT_VEHICLE',
+        reason: 'NOT_IMPLEMENTED',
       };
     }
 
@@ -217,6 +291,35 @@ export class IntegrationGrpcController {
     const route = routes[providerId];
     if (!route) throw new ProveedorNoSoportadoError(providerId);
     return route;
+  }
+
+  private resolveFlightRoute(input: { type?: ProviderType; providerId?: string; provider_id?: string }): FlightProviderRoute {
+    const providerId = this.providerId(input);
+    const routes: Record<string, FlightProviderRoute> = {
+      [FLIGHT_PROVIDER_IDS.VUELOSAPP]: { key: 'VUELOSAPP', name: 'VuelosApp', client: this.vuelosApp },
+      [FLIGHT_PROVIDER_IDS.SKYBOOK]:   { key: 'SKYBOOK',   name: 'SkyBook',   client: this.skybook },
+      [FLIGHT_PROVIDER_IDS.AEROWILLY]:  { key: 'AEROWILLY',  name: 'AeroWilly', client: this.aeroWilly },
+      [FLIGHT_PROVIDER_IDS.AEROCORE]:   { key: 'AEROCORE',   name: 'AeroCore',  client: this.aeroCore },
+    };
+    const route = routes[providerId];
+    if (!route) throw new ProveedorNoSoportadoError(providerId);
+    return route;
+  }
+
+  private requireFlight(item: BookingItem): FlightDetails {
+    if (!item.flight) {
+      throw new ReservaInvalidaError('Integration', 'flight details son requeridos');
+    }
+    return item.flight;
+  }
+
+  private toFlightMutationResponse(remote: ReservaVueloExternaDto) {
+    return {
+      type: ProviderType.FLIGHT,
+      remoteReservationId: remote.id,
+      providerReservationCode: remote.reservationCode ?? remote.id,
+      status: remote.status,
+    };
   }
 
   private toMutationResponse(remote: ReservaExternaDto) {

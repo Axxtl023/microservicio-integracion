@@ -2,6 +2,9 @@ import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
 import axios, { type AxiosInstance } from 'axios';
 import type { IAeroWillyClient } from './i-aerowilly.client';
 import type { Vuelo } from '../../interfaces/vuelos.interface';
+import type { CrearReservaVueloExternaDto } from '../../business/vuelos/dtos/crear-reserva-vuelo-externa.dto';
+import type { ReservaVueloExternaDto } from '../../business/vuelos/dtos/reserva-vuelo-externa.dto';
+import { mapHttpToDomainError } from '../../business/vehiculos/errors/map-http-error';
 
 interface RawAeroWillyClass {
   flightClassId?:  string;
@@ -99,5 +102,46 @@ export class AeroWillyClient implements IAeroWillyClient {
       this.logger.error('[AeroWilly] Error de red al llamar /flights', err);
       throw new ServiceUnavailableException('No se pudo conectar con AeroWilly');
     }
+  }
+
+  async crearReservaVueloExterna(data: CrearReservaVueloExternaDto): Promise<ReservaVueloExternaDto> {
+    try {
+      const res = await this.http.post('/reservations', {
+        flightClassId: data.flightClassId,
+        passengers: data.passengers,
+      });
+      const body = res.data?.data ?? res.data;
+      return this.toReservaDto(body as Record<string, unknown>);
+    } catch (err) {
+      this.logger.error('[AeroWilly] Error creando reserva de vuelo', err);
+      throw mapHttpToDomainError(err, 'AeroWilly', 'No se pudo crear la reserva de vuelo');
+    }
+  }
+
+  async confirmarReservaVueloExterna(id: string): Promise<ReservaVueloExternaDto> {
+    // AeroWilly no expone endpoint de confirmación explícita.
+    this.logger.log(`[AeroWilly] confirm no-op para reserva ${id}`);
+    return { id, status: 'CONFIRMED' };
+  }
+
+  async cancelarReservaVueloExterna(id: string, reason?: string): Promise<ReservaVueloExternaDto> {
+    try {
+      if (reason) this.logger.log(`[AeroWilly] Cancelando reserva ${id}. Razón: ${reason}`);
+      const res = await this.http.patch(`/reservations/${id}/cancel`, {});
+      const body = res.data?.data ?? res.data;
+      return this.toReservaDto(body as Record<string, unknown>);
+    } catch (err) {
+      this.logger.error(`[AeroWilly] Error cancelando reserva ${id}`, err);
+      throw mapHttpToDomainError(err, 'AeroWilly', 'No se pudo cancelar la reserva de vuelo');
+    }
+  }
+
+  private toReservaDto(body: Record<string, unknown>): ReservaVueloExternaDto {
+    return {
+      id: String(body.id ?? ''),
+      reservationCode: body.reservationCode ? String(body.reservationCode) : undefined,
+      status: String(body.status ?? 'PENDING'),
+      flightId: body.flightId ? String(body.flightId) : undefined,
+    };
   }
 }
