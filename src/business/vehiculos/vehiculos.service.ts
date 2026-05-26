@@ -71,6 +71,9 @@ export class VehiculosService implements IVehiculosService {
     const rentwheelsVehiculos = rentwheelsResult.status === 'fulfilled'
       ? rentwheelsResult.value.map(v => ({ ...v, proveedor: 'RentWheels', disponible: norm(v) }))
       : [];
+    if (drivexResult.status === 'rejected') {
+      console.error('❌ [DriveX List Error]:', drivexResult.reason);
+    }
     const drivexVehiculos = drivexResult.status === 'fulfilled'
       ? drivexResult.value.map(v => ({ ...v, proveedor: 'DriveX',     disponible: norm(v) }))
       : [];
