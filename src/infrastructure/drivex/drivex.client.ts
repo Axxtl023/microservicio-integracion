@@ -30,10 +30,23 @@ export class DriveXClient implements IDriveXClient {
 
   async getVehiculos(_params: Record<string, unknown>): Promise<Vehiculo[]> {
     try {
-      const res = await this.catalogoHttp.get('/vehiculos');
-      const items: Vehiculo[] = res.data?.data ?? [];
+      const res    = await this.catalogoHttp.get('/vehiculos');
+      const payload = res.data?.data ?? res.data;
+      const raw     = Array.isArray(payload) ? payload : [];
+      const items: Vehiculo[] = raw.map((item: Record<string, unknown>) => ({
+        id:           String(item.id           ?? ''),
+        nombre:       String(item.nombre       ?? ''),
+        descripcion:  (item.descripcion  as string | null) ?? null,
+        precioPorDia: Number(item.precioPorDia || 0),
+        moneda:       String(item.moneda       ?? 'USD'),
+        categoria:    (item.categoria    as string | null) ?? null,
+        agenciaId:    null,
+        disponible:   item.disponible === true || item.disponible === 'true',
+        status:       null,
+        imagenUrl:    (item.imagenUrl    as string | null) ?? null,
+      }));
       this.logger.log(`[${PROV}] ${items.length} vehículos obtenidos`);
-      return Array.isArray(items) ? items : [];
+      return items;
     } catch (err) {
       this.logger.error(`[${PROV}] Error al obtener vehículos`, err);
       throw new ServiceUnavailableException(`No se pudo conectar con ${PROV}`);
@@ -42,10 +55,24 @@ export class DriveXClient implements IDriveXClient {
 
   async getVehiculoById(id: string): Promise<Vehiculo> {
     try {
-      const res = await this.catalogoHttp.get(`/vehiculos/${id}`);
-      const data: Vehiculo | null = res.data?.data ?? null;
-      if (!data) throw new NotFoundException(`Vehículo ${id} no encontrado en ${PROV}`);
-      return data;
+      const res     = await this.catalogoHttp.get(`/vehiculos/${id}`);
+      const payload = res.data?.data ?? res.data;
+      if (!payload || typeof payload !== 'object') {
+        throw new NotFoundException(`Vehículo ${id} no encontrado en ${PROV}`);
+      }
+      const item = payload as Record<string, unknown>;
+      return {
+        id:           String(item.id           ?? id),
+        nombre:       String(item.nombre       ?? ''),
+        descripcion:  (item.descripcion  as string | null) ?? null,
+        precioPorDia: Number(item.precioPorDia || 0),
+        moneda:       String(item.moneda       ?? 'USD'),
+        categoria:    (item.categoria    as string | null) ?? null,
+        agenciaId:    null,
+        disponible:   item.disponible === true || item.disponible === 'true',
+        status:       null,
+        imagenUrl:    (item.imagenUrl    as string | null) ?? null,
+      };
     } catch (err) {
       if (err instanceof NotFoundException) throw err;
       if ((err as { response?: { status?: number } })?.response?.status === 404) {
@@ -63,16 +90,16 @@ export class DriveXClient implements IDriveXClient {
       const res = await this.catalogoHttp.get(`/vehiculos/${id}/disponibilidad`, {
         params: { fechaInicio: hoy, fechaFin: manana },
       });
-      const raw = res.data?.data;
-      if (!raw || typeof raw !== 'object') {
+      const payload = res.data?.data ?? res.data;
+      if (!payload || typeof payload !== 'object') {
         throw new NotFoundException(`Disponibilidad de ${id} no encontrada en ${PROV}`);
       }
-      const r = raw as Record<string, unknown>;
+      const r = payload as Record<string, unknown>;
       return {
         vehiculoId: String(r.vehiculoId ?? id),
         disponible: r.disponible === true || r.disponible === 'true',
-        status:     (r.status  as string | null) ?? null,
-        mensaje:    (r.mensaje as string | null) ?? null,
+        status:     null,
+        mensaje:    null,
       };
     } catch (err) {
       if (err instanceof NotFoundException) throw err;
