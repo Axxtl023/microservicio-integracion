@@ -50,17 +50,18 @@ export class HomiyaClient implements IHomiyaClient {
     }
   }
 
-  async getHotelById(id: number): Promise<Hotel | null> {
+  async getHotelById(id: any): Promise<Hotel | null> {
+    const cleanId = typeof id === 'string' ? Number(id.replace(/['"]+/g, '')) : Number(id);
     try {
-      const res = await this.http.get(`/api/v1/mathias-rivera/alojamientos/${id}`);
+      const res = await this.http.get(`/api/v1/mathias-rivera/alojamientos/${cleanId}`);
       const payload: unknown = res.data ?? null;
 
       if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
         const raw         = payload as Record<string, unknown>;
-        const habitaciones = await this.getHabitacionesPorAlojamiento(id);
+        const habitaciones = await this.getHabitacionesPorAlojamiento(cleanId);
         return {
-          id:                   Number(raw.alojamientoId ?? raw.id ?? id),
-          alojamientoId:        Number(raw.alojamientoId ?? raw.id ?? id),
+          id:                   Number(raw.alojamientoId ?? raw.id ?? cleanId),
+          alojamientoId:        Number(raw.alojamientoId ?? raw.id ?? cleanId),
           nombre:               String(raw.nombre               ?? ''),
           ciudad:               String(raw.ciudad               ?? ''),
           direccion:            String(raw.direccion            ?? ''),
@@ -74,30 +75,31 @@ export class HomiyaClient implements IHomiyaClient {
         } as any;
       }
 
-      this.logger.warn(`[Homiya] Respuesta inesperada para hotel id=${id}`, payload);
+      this.logger.warn(`[Homiya] Respuesta inesperada para hotel id=${cleanId}`, payload);
       return null;
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 404) return null;
-      this.logger.error(`[Homiya] Error al obtener hotel id=${id}`, err);
+      this.logger.error(`[Homiya] Error al obtener hotel id=${cleanId}`, err);
       throw new ServiceUnavailableException('No se pudo conectar con Homiya');
     }
   }
 
-  async getHabitacionesPorAlojamiento(id: number): Promise<Habitacion[]> {
+  async getHabitacionesPorAlojamiento(id: any): Promise<Habitacion[]> {
+    const cleanId = typeof id === 'string' ? Number(id.replace(/['"]+/g, '')) : Number(id);
     try {
-      const res = await this.http.get(`/api/v1/mathias-rivera/alojamientos/${id}/habitaciones`);
+      const res = await this.http.get(`/api/v1/mathias-rivera/alojamientos/${cleanId}/habitaciones`);
       const payload: unknown = res.data?.data ?? res.data ?? [];
 
       if (Array.isArray(payload)) {
-        this.logger.log(`[Homiya] ${payload.length} habitaciones para alojamiento id=${id}`);
+        this.logger.log(`[Homiya] ${payload.length} habitaciones para alojamiento id=${cleanId}`);
         return payload as Habitacion[];
       }
 
-      this.logger.warn(`[Homiya] Estructura inesperada en habitaciones para id=${id}`, payload);
+      this.logger.warn(`[Homiya] Estructura inesperada en habitaciones para id=${cleanId}`, payload);
       return [];
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 404) {
-        this.logger.warn(`[Homiya] 404 al obtener habitaciones para alojamiento id=${id}`);
+        this.logger.warn(`[Homiya] 404 al obtener habitaciones para alojamiento id=${cleanId}`);
         return [];
       }
       this.logger.error(`[Homiya] Error al obtener habitaciones para id=${id}`, err);
