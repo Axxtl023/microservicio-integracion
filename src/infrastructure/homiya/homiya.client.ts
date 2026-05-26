@@ -27,7 +27,18 @@ export class HomiyaClient implements IHomiyaClient {
 
       if (Array.isArray(payload)) {
         this.logger.log(`[Homiya] ${payload.length} alojamientos recibidos`);
-        return payload as Hotel[];
+        return (payload as Record<string, unknown>[]).map((raw) => ({
+          alojamientoId:        Number(raw.alojamientoId ?? raw.id ?? 0),
+          nombre:               String(raw.nombre               ?? ''),
+          ciudad:               String(raw.ciudad               ?? ''),
+          direccion:            String(raw.direccion            ?? ''),
+          descripcion:          (raw.descripcion as string | null) ?? null,
+          estrellas:            raw.estrellas != null ? Number(raw.estrellas) : null,
+          calificacionPromedio: Number(raw.calificacionPromedio ?? 0),
+          admiteMascotas:       Boolean(raw.admiteMascotas      ?? false),
+          tienePiscina:         Boolean(raw.tienePiscina        ?? false),
+          tieneParqueadero:     Boolean(raw.tieneParqueadero    ?? false),
+        }));
       }
 
       this.logger.warn('[Homiya] Estructura inesperada al listar hoteles', payload);
@@ -44,7 +55,19 @@ export class HomiyaClient implements IHomiyaClient {
       const payload: unknown = res.data ?? null;
 
       if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
-        return payload as Hotel;
+        const raw = payload as Record<string, unknown>;
+        return {
+          alojamientoId:        Number(raw.alojamientoId ?? raw.id ?? id),
+          nombre:               String(raw.nombre               ?? ''),
+          ciudad:               String(raw.ciudad               ?? ''),
+          direccion:            String(raw.direccion            ?? ''),
+          descripcion:          (raw.descripcion as string | null) ?? null,
+          estrellas:            raw.estrellas != null ? Number(raw.estrellas) : null,
+          calificacionPromedio: Number(raw.calificacionPromedio ?? 0),
+          admiteMascotas:       Boolean(raw.admiteMascotas      ?? false),
+          tienePiscina:         Boolean(raw.tienePiscina        ?? false),
+          tieneParqueadero:     Boolean(raw.tieneParqueadero    ?? false),
+        };
       }
 
       this.logger.warn(`[Homiya] Respuesta inesperada para hotel id=${id}`, payload);
@@ -69,7 +92,10 @@ export class HomiyaClient implements IHomiyaClient {
       this.logger.warn(`[Homiya] Estructura inesperada en habitaciones para id=${id}`, payload);
       return [];
     } catch (err) {
-      if (axios.isAxiosError(err) && err.response?.status === 404) return [];
+      if (axios.isAxiosError(err) && err.response?.status === 404) {
+        this.logger.warn(`[Homiya] 404 al obtener habitaciones para alojamiento id=${id}`);
+        return [];
+      }
       this.logger.error(`[Homiya] Error al obtener habitaciones para id=${id}`, err);
       return [];
     }
