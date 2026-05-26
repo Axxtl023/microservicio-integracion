@@ -56,9 +56,10 @@ export class HomiyaClient implements IHomiyaClient {
       const payload: unknown = res.data ?? null;
 
       if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
-        const raw = payload as Record<string, unknown>;
+        const raw         = payload as Record<string, unknown>;
+        const habitaciones = await this.getHabitacionesPorAlojamiento(id);
         return {
-          id:                   Number(raw.alojamientoId ?? raw.id ?? 0),
+          id:                   Number(raw.alojamientoId ?? raw.id ?? id),
           alojamientoId:        Number(raw.alojamientoId ?? raw.id ?? id),
           nombre:               String(raw.nombre               ?? ''),
           ciudad:               String(raw.ciudad               ?? ''),
@@ -69,8 +70,9 @@ export class HomiyaClient implements IHomiyaClient {
           admiteMascotas:       Boolean(raw.admiteMascotas      ?? false),
           tienePiscina:         Boolean(raw.tienePiscina        ?? false),
           tieneParqueadero:     Boolean(raw.tieneParqueadero    ?? false),
+          habitaciones,
         } as any;
-      } 
+      }
 
       this.logger.warn(`[Homiya] Respuesta inesperada para hotel id=${id}`, payload);
       return null;
