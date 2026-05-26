@@ -28,6 +28,7 @@ export class HomiyaClient implements IHomiyaClient {
       if (Array.isArray(payload)) {
         this.logger.log(`[Homiya] ${payload.length} alojamientos recibidos`);
         return (payload as Record<string, unknown>[]).map((raw) => ({
+          id:                   Number(raw.alojamientoId ?? raw.id ?? 0),
           alojamientoId:        Number(raw.alojamientoId ?? raw.id ?? 0),
           nombre:               String(raw.nombre               ?? ''),
           ciudad:               String(raw.ciudad               ?? ''),
@@ -38,7 +39,7 @@ export class HomiyaClient implements IHomiyaClient {
           admiteMascotas:       Boolean(raw.admiteMascotas      ?? false),
           tienePiscina:         Boolean(raw.tienePiscina        ?? false),
           tieneParqueadero:     Boolean(raw.tieneParqueadero    ?? false),
-        }));
+        } as any));
       }
 
       this.logger.warn('[Homiya] Estructura inesperada al listar hoteles', payload);
@@ -57,6 +58,7 @@ export class HomiyaClient implements IHomiyaClient {
       if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
         const raw = payload as Record<string, unknown>;
         return {
+          id:                   Number(raw.alojamientoId ?? raw.id ?? 0),
           alojamientoId:        Number(raw.alojamientoId ?? raw.id ?? id),
           nombre:               String(raw.nombre               ?? ''),
           ciudad:               String(raw.ciudad               ?? ''),
@@ -67,8 +69,8 @@ export class HomiyaClient implements IHomiyaClient {
           admiteMascotas:       Boolean(raw.admiteMascotas      ?? false),
           tienePiscina:         Boolean(raw.tienePiscina        ?? false),
           tieneParqueadero:     Boolean(raw.tieneParqueadero    ?? false),
-        };
-      }
+        } as any;
+      } 
 
       this.logger.warn(`[Homiya] Respuesta inesperada para hotel id=${id}`, payload);
       return null;
