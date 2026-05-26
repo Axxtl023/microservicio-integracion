@@ -624,10 +624,24 @@ export class IntegrationGrpcController {
   }
 
   private timestampToIso(value: ProtoTimestamp | undefined): string {
-    if (!value?.seconds) {
+    if (value === undefined || value === null) {
       throw new ReservaInvalidaError('Integration', 'fecha_inicio y fecha_fin son requeridas');
     }
-    const seconds = typeof value.seconds === 'object' ? value.seconds.toNumber?.() : value.seconds;
-    return new Date(Number(seconds) * 1000).toISOString();
+    const raw = value.seconds;
+    let seconds: number;
+    if (typeof raw === 'object' && raw !== null) {
+      // gRPC Long object (grpc-js serializa int64 como Long cuando el valor excede Number.MAX_SAFE_INTEGER)
+      seconds = typeof raw.toNumber === 'function' ? raw.toNumber() : Number(raw);
+    } else if (typeof raw === 'string') {
+      seconds = parseInt(raw, 10);
+    } else if (typeof raw === 'number') {
+      seconds = raw;
+    } else {
+      throw new ReservaInvalidaError('Integration', `fecha con formato inválido: seconds=${String(raw)}`);
+    }
+    if (!Number.isFinite(seconds)) {
+      throw new ReservaInvalidaError('Integration', `fecha inválida: seconds=${String(raw)} no es un número finito`);
+    }
+    return new Date(seconds * 1000).toISOString();
   }
 }
