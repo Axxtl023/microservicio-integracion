@@ -28,23 +28,30 @@ export class DriveXClient implements IDriveXClient {
     });
   }
 
+  // DriveX devuelve PascalCase: { Success, Message, Data: [...], Errors }
+  // Los campos del item también son PascalCase: Id, Nombre, PrecioPorDia, Disponible, etc.
+  private mapVehiculo(item: Record<string, unknown>, fallbackId = ''): Vehiculo {
+    return {
+      id:           String(item.Id           ?? item.id           ?? fallbackId),
+      nombre:       String(item.Nombre       ?? item.nombre       ?? ''),
+      descripcion:  ((item.Descripcion ?? item.descripcion) as string | null) ?? null,
+      precioPorDia: Number(item.PrecioPorDia ?? item.precioPorDia ?? 0),
+      moneda:       String(item.Moneda       ?? item.moneda       ?? 'USD'),
+      categoria:    ((item.Categoria  ?? item.categoria)  as string | null) ?? null,
+      agenciaId:    null,
+      disponible:   item.Disponible === true || item.disponible === true,
+      status:       null,
+      imagenUrl:    ((item.ImagenUrl  ?? item.imagenUrl)  as string | null) ?? null,
+    };
+  }
+
   async getVehiculos(_params: Record<string, unknown>): Promise<Vehiculo[]> {
     try {
       const res    = await this.catalogoHttp.get('/vehiculos');
-      const payload = res.data?.data ?? res.data;
+      // API devuelve { Data: [...] } en PascalCase — leer con fallback camelCase
+      const payload = res.data?.Data ?? res.data?.data ?? res.data;
       const raw     = Array.isArray(payload) ? payload : [];
-      const items: Vehiculo[] = raw.map((item: Record<string, unknown>) => ({
-        id:           String(item.id           ?? ''),
-        nombre:       String(item.nombre       ?? ''),
-        descripcion:  (item.descripcion  as string | null) ?? null,
-        precioPorDia: Number(item.precioPorDia || 0),
-        moneda:       String(item.moneda       ?? 'USD'),
-        categoria:    (item.categoria    as string | null) ?? null,
-        agenciaId:    null,
-        disponible:   item.disponible === true || item.disponible === 'true',
-        status:       null,
-        imagenUrl:    (item.imagenUrl    as string | null) ?? null,
-      }));
+      const items: Vehiculo[] = raw.map((item: Record<string, unknown>) => this.mapVehiculo(item));
       this.logger.log(`[${PROV}] ${items.length} vehículos obtenidos`);
       return items;
     } catch (err) {
@@ -56,23 +63,11 @@ export class DriveXClient implements IDriveXClient {
   async getVehiculoById(id: string): Promise<Vehiculo> {
     try {
       const res     = await this.catalogoHttp.get(`/vehiculos/${id}`);
-      const payload = res.data?.data ?? res.data;
+      const payload = res.data?.Data ?? res.data?.data ?? res.data;
       if (!payload || typeof payload !== 'object') {
         throw new NotFoundException(`Vehículo ${id} no encontrado en ${PROV}`);
       }
-      const item = payload as Record<string, unknown>;
-      return {
-        id:           String(item.id           ?? id),
-        nombre:       String(item.nombre       ?? ''),
-        descripcion:  (item.descripcion  as string | null) ?? null,
-        precioPorDia: Number(item.precioPorDia || 0),
-        moneda:       String(item.moneda       ?? 'USD'),
-        categoria:    (item.categoria    as string | null) ?? null,
-        agenciaId:    null,
-        disponible:   item.disponible === true || item.disponible === 'true',
-        status:       null,
-        imagenUrl:    (item.imagenUrl    as string | null) ?? null,
-      };
+      return this.mapVehiculo(payload as Record<string, unknown>, id);
     } catch (err) {
       if (err instanceof NotFoundException) throw err;
       if ((err as { response?: { status?: number } })?.response?.status === 404) {
@@ -90,16 +85,17 @@ export class DriveXClient implements IDriveXClient {
       const res = await this.catalogoHttp.get(`/vehiculos/${id}/disponibilidad`, {
         params: { fechaInicio: hoy, fechaFin: manana },
       });
-      const payload = res.data?.data ?? res.data;
+      // API devuelve { Data: { Disponible, Mensaje } } en PascalCase
+      const payload = res.data?.Data ?? res.data?.data ?? res.data;
       if (!payload || typeof payload !== 'object') {
         throw new NotFoundException(`Disponibilidad de ${id} no encontrada en ${PROV}`);
       }
       const r = payload as Record<string, unknown>;
       return {
-        vehiculoId: String(r.vehiculoId ?? id),
-        disponible: r.disponible === true || r.disponible === 'true',
+        vehiculoId: String(r.VehiculoId ?? r.vehiculoId ?? id),
+        disponible: r.Disponible === true || r.disponible === true,
         status:     null,
-        mensaje:    null,
+        mensaje:    ((r.Mensaje ?? r.mensaje) as string | null) ?? null,
       };
     } catch (err) {
       if (err instanceof NotFoundException) throw err;
@@ -116,10 +112,27 @@ export class DriveXClient implements IDriveXClient {
     return this.getDisponibilidad(vehiculoId) as Promise<DisponibilidadDto>;
   }
 
+  // DriveX espera fechas en formato YYYY-MM-DD, no ISO datetime
+  private toDateOnly(iso: string): string {
+    return iso.split('T')[0];
+  }
+
   async crearReservaExterna(data: CrearReservaExternaDto): Promise<ReservaExternaDto> {
     try {
-      const res = await this.operacionesHttp.post('/reservas', data);
-      const created = res.data?.data ?? res.data;
+      const payload = {
+        vehiculoId:  data.vehiculoId,
+        clienteId:   data.clienteId,
+        fechaInicio: this.toDateOnly(data.fechaInicio),
+        fechaFin:    this.toDateOnly(data.fechaFin),
+        total:       0,
+        // agenciaId no existe en DriveX — se omite
+        // sucursalRetiroId / sucursalEntregaId son opcionales según el contrato
+      };
+      // Endpoint correcto para integración externa: POST /reservas/booking
+      // POST /reservas devuelve 400 — es el endpoint interno de DriveX, no el de integración
+      const res = await this.operacionesHttp.post('/reservas/booking', payload);
+      // Respuesta directa sin wrapper: { id, estado, total }
+      const created = res.data?.data ?? res.data?.Data ?? res.data;
       if (!created || typeof created !== 'object') throw new Error('Respuesta inválida del proveedor');
       return created as ReservaExternaDto;
     } catch (err) {
