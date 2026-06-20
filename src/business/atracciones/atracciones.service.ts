@@ -9,6 +9,8 @@ import type { IVenturoClient } from '../../infrastructure/venturo/i-venturo.clie
 import { IVENTURO_CLIENT } from '../../infrastructure/venturo/i-venturo.client';
 import type { INextStopClient } from '../../infrastructure/nextstop/i-nextstop.client';
 import { INEXTSTOP_CLIENT } from '../../infrastructure/nextstop/i-nextstop.client';
+import type { IPaleAtraccionesClient } from '../../infrastructure/paleatracciones/i-paleatracciones.client';
+import { IPALEATRACCIONES_CLIENT } from '../../infrastructure/paleatracciones/i-paleatracciones.client';
 import type { Atraccion, PaginatedAtracciones } from '../../interfaces/atracciones.interface';
 
 @Injectable()
@@ -19,24 +21,27 @@ export class AtraccionesService implements IAtraccionesService {
     @Inject(IATRACCIONES_CLIENT)    private readonly terraQuest:    IAtraccionesClient,
     @Inject(IATRACCIONCATS_CLIENT)  private readonly atraccionCaTs: IAtraccionCaTsClient,
     @Inject(IVENTURO_CLIENT)        private readonly venturo:        IVenturoClient,
-    @Inject(INEXTSTOP_CLIENT)       private readonly nextStop:       INextStopClient,
+    @Inject(INEXTSTOP_CLIENT)          private readonly nextStop:         INextStopClient,
+    @Inject(IPALEATRACCIONES_CLIENT)   private readonly paleAtracctions:  IPaleAtraccionesClient,
   ) {}
 
   async listar(params: ListarAtraccionesParams): Promise<PaginatedAtracciones> {
     const page  = Math.max(1, params.page  ?? 1);
     const limit = Math.max(1, params.limit ?? 10);
 
-    const [tqResult, catsResult, venturoResult, nextStopResult] = await Promise.allSettled([
+    const [tqResult, catsResult, venturoResult, nextStopResult, paleResult] = await Promise.allSettled([
       this.terraQuest.getAtracciones({ page: 1, pageSize: 1000 }),
       this.atraccionCaTs.getAtracciones({}),
       this.venturo.getAtracciones({}),
       this.nextStop.getAtracciones({}),
+      this.paleAtracctions.getAtracciones({}),
     ]);
 
-    if (tqResult.status       === 'rejected') this.logger.error('[TerraQuest] Error al obtener atracciones',    tqResult.reason);
-    if (catsResult.status     === 'rejected') this.logger.error('[AtraccionCaTs] Error al obtener atracciones', catsResult.reason);
-    if (venturoResult.status  === 'rejected') this.logger.error('[Venturo] Error al obtener atracciones',       venturoResult.reason);
-    if (nextStopResult.status === 'rejected') this.logger.error('[NextStop] Error al obtener atracciones',      nextStopResult.reason);
+    if (tqResult.status       === 'rejected') this.logger.error('[TerraQuest] Error al obtener atracciones',       tqResult.reason);
+    if (catsResult.status     === 'rejected') this.logger.error('[AtraccionCaTs] Error al obtener atracciones',   catsResult.reason);
+    if (venturoResult.status  === 'rejected') this.logger.error('[Venturo] Error al obtener atracciones',          venturoResult.reason);
+    if (nextStopResult.status === 'rejected') this.logger.error('[NextStop] Error al obtener atracciones',         nextStopResult.reason);
+    if (paleResult.status     === 'rejected') this.logger.error('[PaleAtracctions] Error al obtener atracciones', paleResult.reason);
 
     const tqItems: Atraccion[] = tqResult.status === 'fulfilled'
       ? tqResult.value.map((a) => ({
@@ -130,11 +135,34 @@ export class AtraccionesService implements IAtraccionesService {
         }))
       : [];
 
+    const paleItems: Atraccion[] = paleResult.status === 'fulfilled'
+      ? paleResult.value.map((a) => ({
+          id:                  a.id,
+          slug:                a.slug               ?? '',
+          name:                a.name               ?? '',
+          descriptionShort:    a.descriptionShort   ?? null,
+          locationName:        a.locationName        ?? null,
+          locationCountryCode: a.locationCountryCode ?? null,
+          categoryName:        a.categoryName        ?? null,
+          subcategoryName:     a.subcategoryName     ?? null,
+          ratingAverage:       a.ratingAverage       ?? null,
+          ratingCount:         a.ratingCount         ?? null,
+          difficultyLevel:     a.difficultyLevel     ?? null,
+          mainImageUrl:        a.mainImageUrl        ?? null,
+          startingPrice:       a.startingPrice       ?? 0,
+          currencyCode:        a.currencyCode        ?? 'USD',
+          isActive:            a.isActive            ?? true,
+          isPublished:         a.isPublished         ?? true,
+          modalityCount:       a.modalityCount       ?? null,
+          proveedor:           'PaleAtracctions',
+        }))
+      : [];
+
     this.logger.log(
-      `[TerraQuest] ${tqItems.length} | [AtraccionCaTs] ${catsItems.length} | [Venturo] ${venturoItems.length} | [NextStop] ${nextStopItems.length} atracciones`,
+      `[TerraQuest] ${tqItems.length} | [AtraccionCaTs] ${catsItems.length} | [Venturo] ${venturoItems.length} | [NextStop] ${nextStopItems.length} | [PaleAtracctions] ${paleItems.length} atracciones`,
     );
 
-    const all        = [...tqItems, ...catsItems, ...venturoItems, ...nextStopItems];
+    const all        = [...tqItems, ...catsItems, ...venturoItems, ...nextStopItems, ...paleItems];
     const total      = all.length;
     const totalPages = Math.max(1, Math.ceil(total / limit));
     const safePage   = Math.min(page, totalPages);
@@ -144,17 +172,19 @@ export class AtraccionesService implements IAtraccionesService {
   }
 
   async obtenerPorSlug(slug: string): Promise<Atraccion> {
-    const [tqResult, catsResult, venturoResult, nextStopResult] = await Promise.allSettled([
+    const [tqResult, catsResult, venturoResult, nextStopResult, paleResult2] = await Promise.allSettled([
       this.terraQuest.getAtraccionBySlug(slug),
       this.atraccionCaTs.getAtraccionBySlug(slug),
       this.venturo.getAtraccionBySlug(slug),
       this.nextStop.getAtraccionBySlug(slug),
+      this.paleAtracctions.getAtraccionBySlug(slug),
     ]);
 
-    const tqRaw       = tqResult.status       === 'fulfilled' ? tqResult.value       : null;
-    const catsRaw     = catsResult.status     === 'fulfilled' ? catsResult.value     : null;
-    const venturoRaw  = venturoResult.status  === 'fulfilled' ? venturoResult.value  : null;
-    const nextStopRaw = nextStopResult.status === 'fulfilled' ? nextStopResult.value : null;
+    const tqRaw        = tqResult.status       === 'fulfilled' ? tqResult.value        : null;
+    const catsRaw      = catsResult.status     === 'fulfilled' ? catsResult.value      : null;
+    const venturoRaw   = venturoResult.status  === 'fulfilled' ? venturoResult.value   : null;
+    const nextStopRaw  = nextStopResult.status === 'fulfilled' ? nextStopResult.value  : null;
+    const paleRaw      = paleResult2.status    === 'fulfilled' ? paleResult2.value     : null;
 
     if (tqRaw && tqRaw.id) {
       return {
@@ -254,6 +284,35 @@ export class AtraccionesService implements IAtraccionesService {
         isPublished:         nextStopRaw.isPublished         ?? true,
         modalityCount:       nextStopRaw.modalityCount       ?? null,
         proveedor:           'NextStop',
+      };
+    }
+
+    if (paleRaw && paleRaw.id) {
+      return {
+        id:                  paleRaw.id,
+        slug:                paleRaw.slug               ?? '',
+        name:                paleRaw.name               ?? '',
+        descriptionShort:    paleRaw.descriptionShort   ?? null,
+        descriptionFull:     paleRaw.descriptionFull    ?? null,
+        locationName:        paleRaw.locationName        ?? null,
+        locationCountryCode: paleRaw.locationCountryCode ?? null,
+        categoryName:        paleRaw.categoryName        ?? null,
+        subcategoryName:     paleRaw.subcategoryName     ?? null,
+        ratingAverage:       paleRaw.ratingAverage       ?? null,
+        ratingCount:         paleRaw.ratingCount         ?? null,
+        difficultyLevel:     paleRaw.difficultyLevel     ?? null,
+        mainImageUrl:        paleRaw.mainImageUrl        ?? null,
+        address:             paleRaw.address             ?? null,
+        meetingPoint:        paleRaw.meetingPoint        ?? null,
+        gallery:             paleRaw.gallery             ?? [],
+        products:            paleRaw.products            ?? [],
+        slots:               (paleRaw as any).slots      ?? [],
+        startingPrice:       paleRaw.startingPrice       ?? 0,
+        currencyCode:        paleRaw.currencyCode        ?? 'USD',
+        isActive:            paleRaw.isActive            ?? true,
+        isPublished:         paleRaw.isPublished         ?? true,
+        modalityCount:       paleRaw.modalityCount       ?? null,
+        proveedor:           'PaleAtracctions',
       };
     }
 
