@@ -62,7 +62,7 @@ export class ZenithDriveClient implements IZenithDriveClient {
 
   async getVehiculos(_params: Record<string, unknown>): Promise<Vehiculo[]> {
     try {
-      const res = await this.http.get('/v1/vehiculos/booking');
+      const res = await this.http.get('/v1/vehiculos');
       // Tolera { data: [...] } y también un array plano en la raíz
       const items: unknown = res.data?.data?.data || res.data?.data || res.data || [];
       this.logger.log(`[ZenithDrive] ${Array.isArray(items) ? items.length : 0} vehículos obtenidos`);
@@ -76,7 +76,7 @@ export class ZenithDriveClient implements IZenithDriveClient {
 
   async getVehiculoById(id: string): Promise<Vehiculo> {
     try {
-      const res  = await this.http.get(`/v1/vehiculos/booking/${id}`);
+      const res  = await this.http.get(`/v1/vehiculos/${id}`);
       const data: unknown = res.data?.data?.data ?? res.data?.data ?? null;
       if (!data || typeof data !== 'object' || Array.isArray(data)) {
         throw new NotFoundException(`Vehículo ${id} no encontrado en Zenith Drive`);
@@ -94,7 +94,7 @@ export class ZenithDriveClient implements IZenithDriveClient {
 
   async getDisponibilidad(id: string): Promise<Disponibilidad> {
     try {
-      const res = await this.http.get(`/v1/vehiculos/booking/${id}/disponibilidad`);
+      const res = await this.http.get(`/v1/vehiculos/${id}/disponibilidad`);
       const raw: unknown = res.data?.data ?? res.data ?? null;
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
         throw new NotFoundException(`Disponibilidad de ${id} no encontrada en Zenith Drive`);
