@@ -6,7 +6,6 @@ import type { CrearReservaExternaDto } from '../../business/vehiculos/dtos/crear
 import type { DisponibilidadDto } from '../../business/vehiculos/dtos/disponibilidad.dto';
 import type { ReservaExternaDto } from '../../business/vehiculos/dtos/reserva-externa.dto';
 import { mapHttpToDomainError } from '../../business/vehiculos/errors/map-http-error';
-import { JwtTokenCache } from '../../business/vehiculos/jwt-token-cache';
 
 const PROV = 'ZenithDrive';
 
@@ -14,61 +13,43 @@ const PROV = 'ZenithDrive';
 export class ZenithDriveClient implements IZenithDriveClient {
   private readonly logger = new Logger(ZenithDriveClient.name);
   private readonly http:   AxiosInstance;
-  private readonly auth?: JwtTokenCache;
 
   constructor() {
-    const baseURL = process.env.ZENITH_DRIVE_API_URL ?? '';
     this.http = axios.create({
-      baseURL,
-      timeout: 4_000,
+      baseURL: process.env.ZENITH_DRIVE_API_URL ?? '',
+      timeout: 10_000,
       headers: { 'Content-Type': 'application/json' },
     });
+  }
 
-    if (process.env.ZENITH_DRIVE_BEARER_TOKEN) {
-      this.http.interceptors.request.use((config) => {
-        config.headers.Authorization = `Bearer ${process.env.ZENITH_DRIVE_BEARER_TOKEN}`;
-        return config;
-      });
-    } else if (process.env.ZENITH_DRIVE_SERVICE_EMAIL && process.env.ZENITH_DRIVE_SERVICE_PASSWORD) {
-      this.auth = new JwtTokenCache({
-        proveedor: PROV,
-        loginUrl: `${baseURL}/v1/auth/login`,
-        email: process.env.ZENITH_DRIVE_SERVICE_EMAIL,
-        password: process.env.ZENITH_DRIVE_SERVICE_PASSWORD,
-      });
-
-      this.http.interceptors.request.use(async (config) => {
-        const token = await this.auth!.getValidToken();
-        config.headers.Authorization = `Bearer ${token}`;
-        return config;
-      });
-
-      this.http.interceptors.response.use(
-        (response) => response,
-        async (error) => {
-          const original = error.config;
-          if (error.response?.status === 401 && !original?._retry) {
-            original._retry = true;
-            this.auth!.invalidate();
-            const token = await this.auth!.getValidToken();
-            original.headers.Authorization = `Bearer ${token}`;
-            return this.http.request(original);
-          }
-          return Promise.reject(error);
-        },
-      );
-    }
+  private mapVehiculo(raw: Record<string, unknown>): Vehiculo {
+    const modelo = raw.modelo   as Record<string, unknown> | null | undefined;
+    const marca  = modelo?.marca as Record<string, unknown> | null | undefined;
+    const cat    = raw.categoria as Record<string, unknown> | null | undefined;
+    const nombre = [marca?.nombre, modelo?.nombre].filter(Boolean).join(' ') || String(raw.placa ?? '');
+    return {
+      id:           String(raw.id ?? ''),
+      nombre,
+      descripcion:  (raw.descripcion as string | null) ?? null,
+      precioPorDia: Number(raw.precioDia ?? 0),
+      moneda:       'USD',
+      categoria:    (cat?.nombre as string | null) ?? null,
+      agenciaId:    (raw.agenciaId as string | null) ?? null,
+      disponible:   raw.status === 'DISPONIBLE',
+      status:       (raw.status as string | null) ?? null,
+      imagenUrl:    (raw.imagenUrl as string | null) ?? null,
+    };
   }
 
   async getVehiculos(_params: Record<string, unknown>): Promise<Vehiculo[]> {
     try {
-      const res = await this.http.get('/v1/vehiculos');
-      // Tolera { data: [...] } y también un array plano en la raíz
-      const items: unknown = res.data?.data?.data || res.data?.data || res.data || [];
-      this.logger.log(`[ZenithDrive] ${Array.isArray(items) ? items.length : 0} vehículos obtenidos`);
-      return (Array.isArray(items) ? items : []) as Vehiculo[];
+      const res    = await this.http.get('/v1/vehiculos');
+      // Respuesta real: { success, data: { data: [...] } }
+      const payload: unknown = res.data?.data?.data ?? res.data?.data ?? res.data;
+      const raw    = Array.isArray(payload) ? payload : [];
+      this.logger.log(`[ZenithDrive] ${raw.length} vehículos obtenidos`);
+      return (raw as Record<string, unknown>[]).map(item => this.mapVehiculo(item));
     } catch (err) {
-      console.error('❌ [ZenithDrive List Error]:', err);
       this.logger.error('[ZenithDrive] Error al obtener vehículos', err);
       throw new ServiceUnavailableException('No se pudo conectar con Zenith Drive');
     }
@@ -77,11 +58,12 @@ export class ZenithDriveClient implements IZenithDriveClient {
   async getVehiculoById(id: string): Promise<Vehiculo> {
     try {
       const res  = await this.http.get(`/v1/vehiculos/${id}`);
-      const data: unknown = res.data?.data?.data ?? res.data?.data ?? null;
+      // Respuesta real: { success, data: { id, precioDia, modelo, ... } }
+      const data: unknown = res.data?.data ?? res.data ?? null;
       if (!data || typeof data !== 'object' || Array.isArray(data)) {
         throw new NotFoundException(`Vehículo ${id} no encontrado en Zenith Drive`);
       }
-      return data as Vehiculo;
+      return this.mapVehiculo(data as Record<string, unknown>);
     } catch (err) {
       if (err instanceof NotFoundException) throw err;
       if ((err as any)?.response?.status === 404) {
@@ -124,10 +106,10 @@ export class ZenithDriveClient implements IZenithDriveClient {
     try {
       const res = await this.http.post('/v1/reservas/booking', {
         vehiculoId: data.vehiculoId,
-        clienteId: data.clienteId,
-        agenciaId: data.agenciaId,
+        clienteId:  data.clienteId,
+        agenciaId:  data.agenciaId,
         fechaInicio: this.toDateOnly(data.fechaInicio),
-        fechaFin: this.toDateOnly(data.fechaFin),
+        fechaFin:    this.toDateOnly(data.fechaFin),
       });
       return this.unwrap(res.data) as ReservaExternaDto;
     } catch (err) {

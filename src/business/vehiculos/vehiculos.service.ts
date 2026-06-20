@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
 import type { IVehiculosService, ListarVehiculosParams } from './interfaces/i-vehiculos.service';
 import type { IUrbancarClient } from '../../infrastructure/urbancar/i-urbancar.client';
 import { IURBANCAR_CLIENT } from '../../infrastructure/urbancar/i-urbancar.client';
@@ -14,6 +14,8 @@ import type { Vehiculo, PaginatedVehiculos, Disponibilidad } from '../../interfa
 
 @Injectable()
 export class VehiculosService implements IVehiculosService {
+  private readonly logger = new Logger(VehiculosService.name);
+
   // Normalizador elástico: mapea los campos de Zenith Drive al contrato común
   // independientemente de variaciones menores en los nombres de campo del proveedor.
   private mapZenith(raw: Record<string, unknown>): Vehiculo {
@@ -83,6 +85,15 @@ export class VehiculosService implements IVehiculosService {
     const zenithVehiculos = zenithResult.status === 'fulfilled'
       ? zenithResult.value.map(auto => ({ ...this.mapZenith(auto as unknown as Record<string, unknown>), proveedor: 'Zenith Drive' }))
       : [];
+
+    this.logger.log(
+      `[Coches] Proveedores: ` +
+      `UrbanCar=${urbanVehiculos.length}(${urbanResult.status}) | ` +
+      `RentCar=${rentcarVehiculos.length}(${rentcarResult.status}) | ` +
+      `RentWheels=${rentwheelsVehiculos.length}(${rentwheelsResult.status}) | ` +
+      `DriveX=${drivexVehiculos.length}(${drivexResult.status}) | ` +
+      `ZenithDrive=${zenithVehiculos.length}(${zenithResult.status})`
+    );
 
     const all        = [...urbanVehiculos, ...rentcarVehiculos, ...rentwheelsVehiculos, ...drivexVehiculos, ...zenithVehiculos];
     const total      = all.length;
