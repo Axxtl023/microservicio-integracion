@@ -1,6 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios, { type AxiosInstance } from 'axios';
 import type { IHousingPlaceClient } from './i-housing-place.client';
+
+// ⚠️ Riesgo de cutover V1→V2 (Naomi Analuisa):
+// El contrato V2 mueve los paths a `/api/v2/...` pero MANTIENE el mismo host
+// en Render. Si Naomi apaga `/api/v1/...` al desplegar V2, este cliente va
+// a empezar a recibir 404. Acción cuando V2 esté en cutover: actualizar
+// HOUSING_PLACE_API_URL al nuevo path o agregar fallback v2→v1 acá.
 import type { Habitacion } from '../../interfaces/hoteles.interface';
 import type { CrearReservaHotelDto } from '../../business/hoteles/dtos/crear-reserva-hotel.dto';
 import type { DisponibilidadHotelDto } from '../../business/hoteles/dtos/disponibilidad-hotel.dto';

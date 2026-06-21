@@ -5,9 +5,11 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Transport, type MicroserviceOptions } from '@nestjs/microservices';
 import { join } from 'path';
 import { AppModule } from './app.module';
+import { StructuredLogger } from './common/observability/structured-logger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.useLogger(new StructuredLogger());
 
   app.enableCors({
     origin: ['http://localhost:5173', 'https://booking-frontend-ashy.vercel.app'],

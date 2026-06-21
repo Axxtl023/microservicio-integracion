@@ -1,0 +1,55 @@
+// Prisma schema dedicado al event-bus de microservicio-integracion.
+// BD aislada (postgres-eventbus en docker-compose.dev.yml) — solo guarda
+// outbox / inbox / idempotencia de negocio. NO replica datos de los proveedores.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model event_outbox {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  event_id       String    @unique @db.Uuid
+  event_type     String    @db.VarChar(100)
+  exchange       String    @db.VarChar(100)
+  routing_key    String    @db.VarChar(100)
+  payload        Json
+  correlation_id String?   @db.Uuid
+  aggregate_id   String?   @db.VarChar(100)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  published_at   DateTime? @db.Timestamptz(6)
+  attempts       Int       @default(0)
+  last_error     String?
+
+  @@index([created_at], map: "idx_event_outbox_unpublished")
+  @@index([correlation_id], map: "idx_event_outbox_correlation")
+  @@index([aggregate_id], map: "idx_event_outbox_aggregate")
+}
+
+model processed_messages {
+  event_id     String   @id @db.Uuid
+  event_type   String   @db.VarChar(100)
+  processed_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+// Idempotencia de negocio. Clave compuesta (reserva_id, item_id, provider_id)
+// porque integracion procesa N items por reserva — uno por proveedor.
+// Cuando el orquestador reintenta un comando, este lookup evita doble llamada
+// al proveedor externo (ej: doble booking en UrbanCar).
+model integration_idempotency {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reserva_id   String   @db.Uuid
+  item_id      String   @db.VarChar(100)
+  provider_id  String   @db.Uuid
+  operation    String   @db.VarChar(50) // CREATE | CONFIRM | CANCEL
+  external_id  String?  @db.VarChar(255) // id devuelto por el proveedor externo
+  status       String   @db.VarChar(20)  // SUCCESS | FAILED
+  payload      Json     // request enviado + response recibida
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([reserva_id, item_id, provider_id, operation], map: "uq_integration_idempotency_key")
+  @@index([reserva_id], map: "idx_integration_idempotency_reserva")
+}

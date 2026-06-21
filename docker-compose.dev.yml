@@ -1,0 +1,38 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: integracion-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-eventbus:
+    image: postgres:16-alpine
+    container_name: integracion-eventbus-postgres
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: integracion
+      POSTGRES_PASSWORD: integracion
+      POSTGRES_DB: integracion_eventbus
+    volumes:
+      - postgres_eventbus_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U integracion -d integracion_eventbus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  rabbitmq_data:
+  postgres_eventbus_data:
