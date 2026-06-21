@@ -13,6 +13,10 @@ RUN npm ci
 # Copiar fuentes y compilar TypeScript → dist/
 # nest-cli.json (assets: ["protos/**/*"]) copia src/protos/integration.proto → dist/protos/
 COPY . .
+
+# Generar el cliente de Prisma para corregir los tipos de TS en las tablas V2
+RUN npx prisma generate
+
 RUN npm run build
 
 # Podar devDependencies en el árbol actual:
