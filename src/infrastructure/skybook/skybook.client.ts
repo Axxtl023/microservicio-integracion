@@ -1,5 +1,6 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import axios, { type AxiosInstance } from 'axios';
+import { randomUUID } from 'crypto';
 import type { ISkybookClient } from './i-skybook.client';
 import type { Vuelo } from '../../interfaces/vuelos.interface';
 import type { CrearReservaVueloExternaDto } from '../../business/vuelos/dtos/crear-reserva-vuelo-externa.dto';
@@ -45,11 +46,23 @@ export class SkybookClient implements ISkybookClient {
       // Usamos un userId estático/hardcodeado para identificar al usuario que realiza la reserva
       // ya que la API requiere userId y no hay clientId en el payload de cancelación.
       const userId = 'booking_central_user';
-      const res = await this.http.post('/reservations', {
-        userId,
-        flightClassId: data.flightClassId,
-        passengers: data.passengers,
-      });
+
+      // V2 de SkyBook (William Carrión) declara X-Idempotency-Key como required en POST /reservations.
+      // El header se envía YA en V1 (el servidor V1 actual lo ignora) para evitar HTTP 400
+      // el día que William haga cutover a V2 sin previo aviso.
+      const idempotencyKey = randomUUID();
+
+      const res = await this.http.post(
+        '/reservations',
+        {
+          userId,
+          flightClassId: data.flightClassId,
+          passengers: data.passengers,
+        },
+        {
+          headers: { 'X-Idempotency-Key': idempotencyKey },
+        },
+      );
       const body = res.data?.data ?? res.data;
       return this.toReservaDto(body as Record<string, unknown>);
     } catch (err) {

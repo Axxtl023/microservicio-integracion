@@ -56,6 +56,15 @@ import { HotelesService } from './business/hoteles/hoteles.service';
 import { IHOTELES_SERVICE } from './business/hoteles/interfaces/i-hoteles.service';
 import { HotelesController } from './api/controllers/v1/HotelesController';
 import { IntegrationGrpcController } from './api/controllers/grpc/IntegrationGrpcController';
+import { EventBusModule } from './business/event-bus/event-bus.module';
+import { ProviderRouterService } from './business/event-bus/router/provider-router.service';
+import { CreateReservationConsumer } from './business/event-bus/consumers/create-reservation.consumer';
+import { ConfirmReservationConsumer } from './business/event-bus/consumers/confirm-reservation.consumer';
+import { CancelReservationConsumer } from './business/event-bus/consumers/cancel-reservation.consumer';
+import { HealthController } from './api/controllers/v1/HealthController';
+import { MetricsController } from './api/controllers/v1/MetricsController';
+import { TraceMiddleware } from './common/observability/trace.middleware';
+import type { MiddlewareConsumer, NestModule } from '@nestjs/common';
 
 @Module({
   imports: [
@@ -69,8 +78,19 @@ import { IntegrationGrpcController } from './api/controllers/grpc/IntegrationGrp
         timeout: 10_000,
       }),
     }),
+
+    // V2: Event Bus (RabbitMQ) — Outbox, Inbox, Consumers
+    EventBusModule,
   ],
-  controllers: [ProductosController, VuelosController, AtraccionesController, HotelesController, IntegrationGrpcController],
+  controllers: [
+    ProductosController,
+    VuelosController,
+    AtraccionesController,
+    HotelesController,
+    IntegrationGrpcController,
+    HealthController,
+    MetricsController,
+  ],
   providers: [
     {
       provide: URBANCAR_INVENTORY_HTTP,
@@ -187,6 +207,18 @@ import { IntegrationGrpcController } from './api/controllers/grpc/IntegrationGrp
     // ── Servicio de hoteles (Locus + Homiya + Rodrigo's + HousingPlace + AlojaExpress) ─
     HotelesService,
     { provide: IHOTELES_SERVICE, useExisting: HotelesService },
+
+    // ── V2 EventBus: router + consumers ───────────────────────────────────────
+    // Comparten DI con los clients ya registrados arriba; EventBusModule (@Global)
+    // expone PrismaService + Outbox/Inbox/Idempotency/Metrics.
+    ProviderRouterService,
+    CreateReservationConsumer,
+    ConfirmReservationConsumer,
+    CancelReservationConsumer,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(TraceMiddleware).forRoutes('*');
+  }
+}
