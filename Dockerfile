@@ -7,6 +7,8 @@ WORKDIR /app
 # Manifiestos primero para maximizar la caché de capas
 COPY package*.json ./
 
+RUN npm ci --ignore-scripts
+
 # Instalación completa (dev + prod): habilita nest build y la CLI de NestJS
 RUN npm ci
 
@@ -26,6 +28,8 @@ RUN npm prune --production
 
 # ── Stage 2: Runner ───────────────────────────────────────────────────────────
 FROM node:24-alpine AS runner
+
+RUN apk add --no-cache openssl
 
 # Sin Prisma ni bcrypt: no se requiere openssl ni ningún paquete Alpine adicional
 WORKDIR /app
