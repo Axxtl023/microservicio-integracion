@@ -138,7 +138,7 @@ export class DriveXClient implements IDriveXClient {
 
       // Endpoint correcto para integración externa: POST /reservas/booking
       // POST /reservas devuelve 400 — es el endpoint interno de DriveX, no el de integración
-      const res = await this.operacionesHttp.post('/reservas/booking', payload);
+      const res = await this.operacionesHttp.post('/reservas/booking', payload, config);
       // Respuesta directa sin wrapper: { id, estado, total }
       const created = res.data?.data ?? res.data?.Data ?? res.data;
       if (!created || typeof created !== 'object') throw new Error('Respuesta inválida del proveedor');
