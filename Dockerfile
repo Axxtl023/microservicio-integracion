@@ -12,12 +12,12 @@ COPY prisma ./prisma/
 # Instalación completa (dev + prod): habilita nest build y la CLI de NestJS
 RUN npm ci
 
+# Generar el cliente de Prisma para corregir los tipos de TS en las tablas V2
+RUN npx prisma generate
+
 # Copiar fuentes y compilar TypeScript → dist/
 # nest-cli.json (assets: ["protos/**/*"]) copia src/protos/integration.proto → dist/protos/
 COPY . .
-
-# Generar el cliente de Prisma para corregir los tipos de TS en las tablas V2
-RUN npx prisma generate
 
 RUN npm run build
 
