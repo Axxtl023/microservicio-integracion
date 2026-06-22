@@ -121,12 +121,16 @@ export class RentcarClient implements IRentcarClient {
   async crearReservaExterna(data: CrearReservaExternaDto): Promise<ReservaExternaDto> {
     try {
       // El contrato de RentCar ahora es público, requiere clienteId, y acepta ISO 8601 completo en reservas/booking.
+      
+      const fechaInicioPlana = data.fechaInicio.includes('T') ? data.fechaInicio.split('T')[0] : data.fechaInicio;
+      const fechaFinPlana = data.fechaFin.includes('T') ? data.fechaFin.split('T')[0] : data.fechaFin;
+      
       const body = {
         vehiculoId: data.vehiculoId,
         clienteId: data.clienteId,
         agenciaId: data.agenciaId || undefined,
-        fechaInicio: data.fechaInicio,
-        fechaFin: data.fechaFin,
+        fechaInicio: fechaInicioPlana,
+        fechaFin: fechaFinPlana,
       };
       const res = await this.operationsHttp.post<RentCarApiResponse<ReservaExternaDto>>('reservas/booking', body);
       if (!res.data.success || !res.data.data) throw new Error('Respuesta inválida del proveedor');
