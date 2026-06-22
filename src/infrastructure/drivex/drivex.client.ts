@@ -138,7 +138,7 @@ export class DriveXClient implements IDriveXClient {
         }
       };
 
-      this.logger.log(`[${PROV}] Despachando POST real a /reservas. Vehículo: ${payload.vehiculoId}`);
+      this.logger.log(`[${PROV}] Despachando POST real a /reservas/booking. Vehículo: ${payload.vehiculoId}`);
 
       // Endpoint correcto para integración externa: POST /reservas/booking
       // POST /reservas devuelve 400 — es el endpoint interno de DriveX, no el de integración
