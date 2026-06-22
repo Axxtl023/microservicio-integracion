@@ -104,7 +104,7 @@ export class ZenithDriveClient implements IZenithDriveClient {
 
   async crearReservaExterna(data: CrearReservaExternaDto): Promise<ReservaExternaDto> {
     try {
-      const res = await this.http.post('/v1/reservas/booking', {
+      const res = await this.http.post('/api/v2/mateodavid/operaciones/reservas', {
         vehiculoId: data.vehiculoId,
         clienteId:  data.clienteId,
         agenciaId:  data.agenciaId,
