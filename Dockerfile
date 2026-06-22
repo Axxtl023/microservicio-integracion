@@ -7,7 +7,7 @@ WORKDIR /app
 # Manifiestos primero para maximizar la caché de capas
 COPY package*.json ./
 
-RUN npm ci --ignore-scripts
+COPY prisma ./prisma/
 
 # Instalación completa (dev + prod): habilita nest build y la CLI de NestJS
 RUN npm ci
