@@ -152,10 +152,20 @@ export class CreateReservationConsumer {
           return;
         }
 
-        // 7. Error de infra (red, timeout, 5xx) → throw → RabbitMQ retry → DLX
-        this.logger.error(`[create-reservation] infra, reintentando: ${error.message}`);
+        // Error de infra (red, timeout, 5xx) → marcar FAILED + publicar create_failed + ACK.
+        // Hacer throw causaría nack(requeue=true) → hot loop infinito.
+        const infraErr = { code: 'INFRA_ERROR', message: error.message ?? 'infra error' };
+        await this.prisma.$transaction(async (tx) => {
+          await this.inbox.markProcessedTx(tx, eventId, eventType);
+          await this.idempotency.save(tx, idKey, {
+            status: 'FAILED',
+            externalId: null,
+            payload: { error: infraErr },
+          });
+          await this.publishCreateFailedTx(tx, correlationId, eventId, payload, infraErr);
+        });
+        this.logger.error(`[create-reservation] infra, fallback a FAILED: ${error.message}`);
         this.metrics.incrementFailed(eventType);
-        throw err;
       }
     });
   }

@@ -131,9 +131,19 @@ export class CancelReservationConsumer {
           return;
         }
 
-        this.logger.error(`[cancel-reservation] infra, reintentando: ${error.message}`);
+        // Infra → FAILED + publish cancel_failed + ACK (no hot loop).
+        const infraErr = { code: 'INFRA_ERROR', message: error.message ?? 'infra error' };
+        await this.prisma.$transaction(async (tx) => {
+          await this.inbox.markProcessedTx(tx, eventId, eventType);
+          await this.idempotency.save(tx, idKey, {
+            status: 'FAILED',
+            externalId: payload.externalId,
+            payload: { error: infraErr },
+          });
+          await this.publishCancelFailedTx(tx, correlationId, eventId, payload, infraErr);
+        });
+        this.logger.error(`[cancel-reservation] infra, fallback a FAILED: ${error.message}`);
         this.metrics.incrementFailed(eventType);
-        throw err;
       }
     });
   }

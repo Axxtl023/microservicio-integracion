@@ -65,6 +65,9 @@ const makeEnvelope = (
     itemId: 'item-1',
     providerId: '11111111-0001-4000-8000-000000000001',
     providerType: 'VEHICLE',
+    quantity: 1,
+    unitPrice: 90,
+    currency: 'USD',
     metadata: {
       vehiculoId: 'veh-1',
       clienteId: 'cli-1',
@@ -250,20 +253,29 @@ describe('CreateReservationConsumer.handle', () => {
     });
   });
 
-  describe('first attempt — infra error (retryable)', () => {
-    it('rethrows infra errors so RabbitMQ retries and routes to DLX after max attempts', async () => {
+  describe('first attempt — infra error (fallback a FAILED, no hot loop)', () => {
+    it('resuelve sin throw (ACK) para no causar requeue infinito', async () => {
       const { consumer, router } = buildConsumer();
-      const infraError = new Error('ECONNREFUSED — provider server down');
-      router.create.mockRejectedValue(infraError);
-
-      await expect(consumer.handle(makeEnvelope())).rejects.toThrow('ECONNREFUSED');
+      router.create.mockRejectedValue(new Error('ECONNREFUSED — provider server down'));
+      await expect(consumer.handle(makeEnvelope())).resolves.toBeUndefined();
     });
 
-    it('does not save idempotency for infra errors (next retry must hit provider again)', async () => {
+    it('guarda idempotency FAILED con código INFRA_ERROR', async () => {
       const { consumer, router, idempotency } = buildConsumer();
       router.create.mockRejectedValue(new Error('timeout'));
-      try { await consumer.handle(makeEnvelope()); } catch { /* expected */ }
-      expect(idempotency.save).not.toHaveBeenCalled();
+      await consumer.handle(makeEnvelope());
+      expect(idempotency.save).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ operation: 'CREATE' }),
+        expect.objectContaining({ status: 'FAILED', externalId: null }),
+      );
+    });
+
+    it('publica create_failed para que la saga termine en vez de quedar colgada', async () => {
+      const { consumer, router, outbox } = buildConsumer();
+      router.create.mockRejectedValue(new Error('timeout'));
+      await consumer.handle(makeEnvelope());
+      expect(outbox.save).toHaveBeenCalled();
     });
   });
 });
