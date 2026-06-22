@@ -128,6 +128,14 @@ export class DriveXClient implements IDriveXClient {
         // agenciaId no existe en DriveX — se omite
         // sucursalRetiroId / sucursalEntregaId son opcionales según el contrato
       };
+
+      const config = {
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': data.clienteId // Usamos el clienteId (UUID) como llave única de idempotencia
+        }
+      };
+
       // Endpoint correcto para integración externa: POST /reservas/booking
       // POST /reservas devuelve 400 — es el endpoint interno de DriveX, no el de integración
       const res = await this.operacionesHttp.post('/reservas/booking', payload);
