@@ -23,7 +23,7 @@ export class DriveXClient implements IDriveXClient {
       headers: { 'Content-Type': 'application/json' },
     });
     this.operacionesHttp = axios.create({
-      baseURL: process.env.DRIVEX_OPERACIONES_URL ?? process.env.DRIVEX_CATALOGO_URL ?? '',
+      baseURL: process.env.DRIVEX_OPERACIONES_URL ?? '',
       timeout: 10_000,
       headers: { 'Content-Type': 'application/json' },
     });
