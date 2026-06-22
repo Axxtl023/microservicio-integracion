@@ -124,7 +124,7 @@ export class DriveXClient implements IDriveXClient {
         clienteId:   data.clienteId,
         fechaInicio: data.fechaInicio,
         fechaFin:    data.fechaFin,
-        total:       0,
+        total:       50,
         // agenciaId no existe en DriveX — se omite
         // sucursalRetiroId / sucursalEntregaId son opcionales según el contrato
       };
