@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import axios, { AxiosInstance } from 'axios';
+import * as crypto from 'crypto';
 import type { IDriveXClient } from './i-drivex.client';
 import type { Vehiculo, Disponibilidad } from '../../interfaces/urbancar.interface';
 import type { CrearReservaExternaDto } from '../../business/vehiculos/dtos/crear-reserva-externa.dto';
@@ -47,7 +48,7 @@ export class DriveXClient implements IDriveXClient {
 
   async getVehiculos(_params: Record<string, unknown>): Promise<Vehiculo[]> {
     try {
-      const res    = await this.catalogoHttp.get('/vehiculos');
+      const res    = await this.catalogoHttp.get('/vehiculos/booking');
       // API devuelve { Data: [...] } en PascalCase — leer con fallback camelCase
       const payload = res.data?.Data ?? res.data?.data ?? res.data;
       const raw     = Array.isArray(payload) ? payload : [];
@@ -62,7 +63,7 @@ export class DriveXClient implements IDriveXClient {
 
   async getVehiculoById(id: string): Promise<Vehiculo> {
     try {
-      const res     = await this.catalogoHttp.get(`/vehiculos/${id}`);
+      const res     = await this.catalogoHttp.get(`/vehiculos/booking/${id}`);
       const payload = res.data?.Data ?? res.data?.data ?? res.data;
       if (!payload || typeof payload !== 'object') {
         throw new NotFoundException(`Vehículo ${id} no encontrado en ${PROV}`);
@@ -82,7 +83,7 @@ export class DriveXClient implements IDriveXClient {
     try {
       const hoy    = new Date().toISOString().split('T')[0];
       const manana = new Date(Date.now() + 86_400_000).toISOString().split('T')[0];
-      const res = await this.catalogoHttp.get(`/vehiculos/${id}/disponibilidad`, {
+      const res = await this.catalogoHttp.get(`/vehiculos/booking/${id}/disponibilidad`, {
         params: { fechaInicio: hoy, fechaFin: manana },
       });
       // API devuelve { Data: { Disponible, Mensaje } } en PascalCase
@@ -122,17 +123,19 @@ export class DriveXClient implements IDriveXClient {
       const payload = {
         vehiculoId:  data.vehiculoId,
         clienteId:   data.clienteId,
-        fechaInicio: this.toDateOnly(data.fechaInicio),
-        fechaFin:    this.toDateOnly(data.fechaFin),
+        fechaInicio: data.fechaInicio,
+        fechaFin:    data.fechaFin,
         total:       0,
         // agenciaId no existe en DriveX — se omite
         // sucursalRetiroId / sucursalEntregaId son opcionales según el contrato
       };
 
+      const idempotencyKey = (data as any).reservaId ?? (data as any).sagaId ?? crypto.randomUUID();
+
       const config = {
         headers: {
           'Content-Type': 'application/json',
-          'Idempotency-Key': data.clienteId // Usamos el clienteId (UUID) como llave única de idempotencia
+          'Idempotency-Key': idempotencyKey
         }
       };
 
@@ -151,7 +154,7 @@ export class DriveXClient implements IDriveXClient {
 
   async confirmarReservaExterna(id: string): Promise<ReservaExternaDto> {
     try {
-      const res = await this.operacionesHttp.patch(`/reservas/${id}`, { status: 'CONFIRMADA', estado: 'CONFIRMADA' });
+      const res = await this.operacionesHttp.patch(`/reservas/booking/${id}`, { status: 'CONFIRMADA', estado: 'CONFIRMADA' });
       const updated = res.data?.data ?? res.data;
       if (!updated || typeof updated !== 'object') throw new Error('Respuesta inválida del proveedor');
       return updated as ReservaExternaDto;
@@ -164,7 +167,7 @@ export class DriveXClient implements IDriveXClient {
   async cancelarReservaExterna(id: string, reason?: string): Promise<ReservaExternaDto> {
     try {
       if (reason) this.logger.log(`[${PROV}] Cancelando reserva ${id}. Razón: ${reason}`);
-      const res = await this.operacionesHttp.patch(`/reservas/${id}`, { status: 'CANCELADA', estado: 'CANCELADA' });
+      const res = await this.operacionesHttp.patch(`/reservas/booking/${id}`, { status: 'CANCELADA', estado: 'CANCELADA' });
       const updated = res.data?.data ?? res.data;
       if (!updated || typeof updated !== 'object') throw new Error('Respuesta inválida del proveedor');
       return updated as ReservaExternaDto;
