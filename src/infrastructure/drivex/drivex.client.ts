@@ -29,28 +29,27 @@ export class DriveXClient implements IDriveXClient {
     });
   }
 
-  // DriveX devuelve PascalCase: { Success, Message, Data: [...], Errors }
-  // Los campos del item también son PascalCase: Id, Nombre, PrecioPorDia, Disponible, etc.
+  // DriveX V2 devuelve camelCase con fallback PascalCase (V1 legacy)
   private mapVehiculo(item: Record<string, unknown>, fallbackId = ''): Vehiculo {
     return {
-      id:           String(item.Id           ?? item.id           ?? fallbackId),
-      nombre:       String(item.Nombre       ?? item.nombre       ?? ''),
-      descripcion:  ((item.Descripcion ?? item.descripcion) as string | null) ?? null,
-      precioPorDia: Number(item.PrecioPorDia ?? item.precioPorDia ?? 0),
-      moneda:       String(item.Moneda       ?? item.moneda       ?? 'USD'),
-      categoria:    ((item.Categoria  ?? item.categoria)  as string | null) ?? null,
-      agenciaId:    null,
-      disponible:   item.Disponible === true || item.disponible === true,
-      status:       null,
-      imagenUrl:    ((item.ImagenUrl  ?? item.imagenUrl)  as string | null) ?? null,
+      id:           String(item.id           ?? item.Id           ?? fallbackId),
+      nombre:       String(item.nombre       ?? item.Nombre       ?? ''),
+      descripcion:  ((item.descripcion ?? item.Descripcion) as string | null) ?? null,
+      precioPorDia: Number(item.precioPorDia ?? item.PrecioPorDia ?? 0),
+      moneda:       String(item.moneda       ?? item.Moneda       ?? 'USD'),
+      categoria:    ((item.categoria  ?? item.Categoria)  as string | null) ?? null,
+      agenciaId:    ((item.agenciaId  ?? item.AgenciaId)  as string | null) ?? null,
+      disponible:   item.disponible === true || item.Disponible === true,
+      status:       ((item.status     ?? item.Status)     as string | null) ?? null,
+      imagenUrl:    ((item.imagenUrl  ?? item.ImagenUrl)  as string | null) ?? null,
     };
   }
 
   async getVehiculos(_params: Record<string, unknown>): Promise<Vehiculo[]> {
     try {
       const res    = await this.catalogoHttp.get('/vehiculos/booking');
-      // API devuelve { Data: [...] } en PascalCase — leer con fallback camelCase
-      const payload = res.data?.Data ?? res.data?.data ?? res.data;
+      // API devuelve { success, data: { data: [...] } } — lista doblemente anidada
+      const payload = res.data?.data?.data ?? res.data?.Data ?? res.data?.data ?? res.data;
       const raw     = Array.isArray(payload) ? payload : [];
       const items: Vehiculo[] = raw.map((item: Record<string, unknown>) => this.mapVehiculo(item));
       this.logger.log(`[${PROV}] ${items.length} vehículos obtenidos`);
