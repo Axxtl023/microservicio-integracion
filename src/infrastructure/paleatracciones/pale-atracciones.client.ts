@@ -40,6 +40,10 @@ export class PaleAtraccionesClient implements IPaleAtraccionesClient {
       meetingPoint:        (raw.meetingPoint        as string | null) ?? null,
       gallery:             Array.isArray(raw.gallery)  ? raw.gallery  : [],
       products:            Array.isArray(raw.products) ? raw.products : [],
+      // PaleAtracctions devuelve los slots a nivel de la atracción (no anidados
+      // bajo products). Se mapean tal cual — el FE consume slotId, fecha,
+      // horaInicio, cuposDisponibles para mostrar el selector de fechas.
+      slots:               Array.isArray(raw.slots)    ? raw.slots    : [],
       startingPrice:       Number(raw.startingPrice ?? 0),
       currencyCode:        String(raw.currencyCode ?? 'USD'),
       isActive:            raw.isActive    !== false,
