@@ -26,19 +26,15 @@ export class ZenithDriveClient implements IZenithDriveClient {
   }
 
   private mapVehiculo(raw: Record<string, unknown>): Vehiculo {
-    const modelo = raw.modelo   as Record<string, unknown> | null | undefined;
-    const marca  = modelo?.marca as Record<string, unknown> | null | undefined;
-    const cat    = raw.categoria as Record<string, unknown> | null | undefined;
-    const nombre = [marca?.nombre, modelo?.nombre].filter(Boolean).join(' ') || String(raw.placa ?? '');
     return {
       id:           String(raw.id ?? ''),
-      nombre,
+      nombre:       String(raw.nombre ?? ''),
       descripcion:  (raw.descripcion as string | null) ?? null,
-      precioPorDia: Number(raw.precioDia ?? 0),
-      moneda:       'USD',
-      categoria:    (cat?.nombre as string | null) ?? null,
+      precioPorDia: Number(raw.precioPorDia ?? raw.precioDia ?? 0),
+      moneda:       String(raw.moneda ?? 'USD'),
+      categoria:    (raw.categoria as string | null) ?? null,
       agenciaId:    (raw.agenciaId as string | null) ?? null,
-      disponible:   raw.status === 'DISPONIBLE',
+      disponible:   raw.disponible === true || raw.status === 'DISPONIBLE',
       status:       (raw.status as string | null) ?? null,
       imagenUrl:    (raw.imagenUrl as string | null) ?? null,
     };
@@ -61,7 +57,7 @@ export class ZenithDriveClient implements IZenithDriveClient {
   async getVehiculoById(id: string): Promise<Vehiculo> {
     try {
       const res  = await this.http.get(`/v1/vehiculos/${id}`);
-      // Respuesta real: { success, data: { id, precioDia, modelo, ... } }
+      // Respuesta real: { success, data: { id, nombre, precioPorDia, ... } }
       const data: unknown = res.data?.data ?? res.data ?? null;
       if (!data || typeof data !== 'object' || Array.isArray(data)) {
         throw new NotFoundException(`Vehículo ${id} no encontrado en Zenith Drive`);
