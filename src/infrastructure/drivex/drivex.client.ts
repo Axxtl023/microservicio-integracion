@@ -144,7 +144,8 @@ export class DriveXClient implements IDriveXClient {
 
       this.logger.log(`[${PROV}] POST /reservas/booking vehiculo=${payload.vehiculoId}`);
 
-      // Path oficial del contrato v2.0.0: /reservas/booking (no /reservas — ese es el endpoint interno)
+      // Path oficial del contrato v2.0.0 (Paula Pozo): /reservas/booking
+      // El endpoint /reservas es interno de DriveX y devuelve 400 — no usar.
       const res = await this.operacionesHttp.post('/reservas/booking', payload, config);
       // Respuesta directa sin wrapper: { id, estado, total }
       const created = res.data?.data ?? res.data?.Data ?? res.data;
