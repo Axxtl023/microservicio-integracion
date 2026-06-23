@@ -42,6 +42,7 @@ import { IATRACCIONES_CLIENT } from '../../../infrastructure/atracciones/i-atrac
 import { IATRACCIONCATS_CLIENT } from '../../../infrastructure/atraccioncats/i-atraccioncats.client';
 import { IVENTURO_CLIENT } from '../../../infrastructure/venturo/i-venturo.client';
 import { INEXTSTOP_CLIENT } from '../../../infrastructure/nextstop/i-nextstop.client';
+import { IPALEATRACCIONES_CLIENT } from '../../../infrastructure/paleatracciones/i-paleatracciones.client';
 import type { ReservaAtraccionExternaDto } from '../../../business/atracciones/dtos/reserva-atraccion-externa.dto';
 
 enum ProviderType {
@@ -206,6 +207,7 @@ export class IntegrationGrpcController {
     @Inject(IATRACCIONCATS_CLIENT) private readonly atraccionCats: IReservaExternaAtraccionClient,
     @Inject(IVENTURO_CLIENT) private readonly venturo: IReservaExternaAtraccionClient,
     @Inject(INEXTSTOP_CLIENT) private readonly nextStop: IReservaExternaAtraccionClient,
+    @Inject(IPALEATRACCIONES_CLIENT) private readonly paleAtracctions: IReservaExternaAtraccionClient,
   ) {}
 
   @GrpcMethod('IntegrationService', 'CheckBatchAvailability')
@@ -554,10 +556,11 @@ export class IntegrationGrpcController {
   private resolveTourRoute(input: { type?: ProviderType; providerId?: string; provider_id?: string }): TourProviderRoute {
     const providerId = this.providerId(input);
     const routes: Record<string, TourProviderRoute> = {
-      [TOUR_PROVIDER_IDS.TERRAQUEST]: { key: 'TERRAQUEST', name: 'TerraQuest', client: this.terraQuest },
-      [TOUR_PROVIDER_IDS.VENTURO]:    { key: 'VENTURO',    name: 'Venturo',    client: this.venturo },
-      [TOUR_PROVIDER_IDS.CATS]:       { key: 'CATS',       name: 'AtraccionCaTs', client: this.atraccionCats },
-      [TOUR_PROVIDER_IDS.NEXTSTOP]:   { key: 'NEXTSTOP',   name: 'NextStop',   client: this.nextStop },
+      [TOUR_PROVIDER_IDS.TERRAQUEST]:      { key: 'TERRAQUEST',      name: 'TerraQuest',      client: this.terraQuest },
+      [TOUR_PROVIDER_IDS.VENTURO]:         { key: 'VENTURO',         name: 'Venturo',         client: this.venturo },
+      [TOUR_PROVIDER_IDS.CATS]:            { key: 'CATS',            name: 'AtraccionCaTs',   client: this.atraccionCats },
+      [TOUR_PROVIDER_IDS.NEXTSTOP]:        { key: 'NEXTSTOP',        name: 'NextStop',        client: this.nextStop },
+      [TOUR_PROVIDER_IDS.PALEATRACCTIONS]: { key: 'PALEATRACCTIONS', name: 'PaleAtracctions', client: this.paleAtracctions },
     };
     const route = routes[providerId];
     if (!route) throw new ProveedorNoSoportadoError(providerId);

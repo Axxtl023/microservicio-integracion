@@ -28,6 +28,7 @@ import { IATRACCIONES_CLIENT } from '../../../infrastructure/atracciones/i-atrac
 import { IATRACCIONCATS_CLIENT } from '../../../infrastructure/atraccioncats/i-atraccioncats.client';
 import { IVENTURO_CLIENT } from '../../../infrastructure/venturo/i-venturo.client';
 import { INEXTSTOP_CLIENT } from '../../../infrastructure/nextstop/i-nextstop.client';
+import { IPALEATRACCIONES_CLIENT } from '../../../infrastructure/paleatracciones/i-paleatracciones.client';
 import { TOUR_PROVIDER_IDS } from '../../atracciones/tour-provider-routing';
 
 import type { ProviderType } from '../event-types';
@@ -91,6 +92,7 @@ export class ProviderRouterService {
     @Inject(IATRACCIONCATS_CLIENT) private readonly atraccionCats: IReservaExternaAtraccionClient,
     @Inject(IVENTURO_CLIENT) private readonly venturo: IReservaExternaAtraccionClient,
     @Inject(INEXTSTOP_CLIENT) private readonly nextStop: IReservaExternaAtraccionClient,
+    @Inject(IPALEATRACCIONES_CLIENT) private readonly paleAtracctions: IReservaExternaAtraccionClient,
   ) {}
 
   async create(
@@ -252,6 +254,7 @@ export class ProviderRouterService {
       [TOUR_PROVIDER_IDS.VENTURO]: this.venturo,
       [TOUR_PROVIDER_IDS.CATS]: this.atraccionCats,
       [TOUR_PROVIDER_IDS.NEXTSTOP]: this.nextStop,
+      [TOUR_PROVIDER_IDS.PALEATRACCTIONS]: this.paleAtracctions,
     };
     const client = routes[providerId];
     if (!client) throw new ProviderNotSupportedError(providerId);
