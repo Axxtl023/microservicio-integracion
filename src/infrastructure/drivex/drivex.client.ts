@@ -24,7 +24,12 @@ export class DriveXClient implements IDriveXClient {
     });
     this.operacionesHttp = axios.create({
       baseURL: process.env.DRIVEX_OPERACIONES_URL ?? '',
-      timeout: 10_000,
+      // ms-alquiler corre en Azure Container Apps con scale-to-zero. Cold start
+      // observado ~90s (mucho peor que Zenith). Si Paula configura minReplicas=1
+      // podemos bajar este timeout. Mientras tanto, 60s tolera la mayoría de cold
+      // starts; el handler V1 sync del orquestador igual va a tardar — el usuario
+      // ve un loader largo en la primera reserva del día.
+      timeout: 60_000,
       headers: { 'Content-Type': 'application/json' },
     });
   }
