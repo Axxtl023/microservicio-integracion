@@ -17,7 +17,10 @@ export class ZenithDriveClient implements IZenithDriveClient {
   constructor() {
     this.http = axios.create({
       baseURL: process.env.ZENITH_DRIVE_API_URL ?? '',
-      timeout: 10_000,
+      // Zenith está en Azure Container Apps con cold start de ~10-11s. El timeout
+      // anterior (10s) producía UNAVAILABLE en la primera request tras inactividad.
+      // 30s deja margen para cold start + procesamiento normal (~1.5s).
+      timeout: 30_000,
       headers: { 'Content-Type': 'application/json' },
     });
   }
@@ -104,7 +107,11 @@ export class ZenithDriveClient implements IZenithDriveClient {
 
   async crearReservaExterna(data: CrearReservaExternaDto): Promise<ReservaExternaDto> {
     try {
-      const res = await this.http.post('/api/v2/mateodavid/operaciones/reservas', {
+      // Path V1: probado con curl directo y devuelve 200/201 CONFIRMADA.
+      // El path V2 que se intentó (/api/v2/mateodavid/operaciones/reservas)
+      // devuelve 405 Not Allowed (POST no soportado) — el nginx de Zenith
+      // no acepta el verbo POST en esa ruta V2. Reverted a V1 que sí funciona.
+      const res = await this.http.post('/v1/reservas/booking', {
         vehiculoId: data.vehiculoId,
         clienteId:  data.clienteId,
         agenciaId:  data.agenciaId,

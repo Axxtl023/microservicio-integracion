@@ -119,30 +119,33 @@ export class DriveXClient implements IDriveXClient {
 
   async crearReservaExterna(data: CrearReservaExternaDto): Promise<ReservaExternaDto> {
     try {
+      // Contrato oficial v2.0.0 (Paula Pozo) - BookingReservaRequestDto:
+      //   required: vehiculoId, clienteId, fechaInicio (ISO date-time), fechaFin (ISO date-time)
+      //   optional: agenciaId
+      //   NO incluye `total` — el server lo calcula del precio del vehículo × días
       const payload = {
         vehiculoId:  data.vehiculoId,
         clienteId:   data.clienteId,
         fechaInicio: data.fechaInicio,
         fechaFin:    data.fechaFin,
-        total:       50,
-        // agenciaId no existe en DriveX — se omite
-        // sucursalRetiroId / sucursalEntregaId son opcionales según el contrato
+        // agenciaId opcional según contrato — DriveX lo resuelve internamente desde el vehiculoId
       };
 
+      // Idempotency-Key obligatorio según contrato. Si la saga del orquestador lo pasa,
+      // se reutiliza para idempotencia cross-retry; sino se genera uno por intento.
       const idempotencyKey = (data as any).reservaId ?? (data as any).sagaId ?? crypto.randomUUID();
 
       const config = {
         headers: {
           'Content-Type': 'application/json',
-          'Idempotency-Key': idempotencyKey
-        }
+          'Idempotency-Key': idempotencyKey,
+        },
       };
 
-      this.logger.log(`[${PROV}] Despachando POST real a /reservas. Vehículo: ${payload.vehiculoId}`);
+      this.logger.log(`[${PROV}] POST /reservas/booking vehiculo=${payload.vehiculoId}`);
 
-      // Endpoint correcto para integración externa: POST /reservas/booking
-      // POST /reservas devuelve 400 — es el endpoint interno de DriveX, no el de integración
-      const res = await this.operacionesHttp.post('/reservas', payload, config);
+      // Path oficial del contrato v2.0.0: /reservas/booking (no /reservas — ese es el endpoint interno)
+      const res = await this.operacionesHttp.post('/reservas/booking', payload, config);
       // Respuesta directa sin wrapper: { id, estado, total }
       const created = res.data?.data ?? res.data?.Data ?? res.data;
       if (!created || typeof created !== 'object') throw new Error('Respuesta inválida del proveedor');
