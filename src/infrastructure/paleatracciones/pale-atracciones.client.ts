@@ -82,7 +82,9 @@ export class PaleAtraccionesClient implements IPaleAtraccionesClient {
 
   async crearReservaAtraccionExterna(data: CrearReservaAtraccionExternaDto): Promise<ReservaAtraccionExternaDto> {
     try {
-      const res = await this.http.post('/catalog/booking', {
+      // Endpoint real del gateway de Paula: /booking/booking
+      // (/catalog/booking devuelve 404 — confirmado con curl directo)
+      const res = await this.http.post('/booking/booking', {
         slotId:         data.slotId,
         attractionId:   data.attractionId,
         productOptionId: data.productOptionId,
@@ -116,7 +118,7 @@ export class PaleAtraccionesClient implements IPaleAtraccionesClient {
   async cancelarReservaAtraccionExterna(id: string, reason?: string): Promise<ReservaAtraccionExternaDto> {
     try {
       if (reason) this.logger.log(`[${PROV}] Cancelando reserva ${id}. Razón: ${reason}`);
-      await this.http.post(`/catalog/booking/${id}/cancel`, {
+      await this.http.post(`/booking/booking/${id}/cancel`, {
         cancelReason: reason || 'Cancelación solicitada por el usuario',
       });
       return { id, status: 'CANCELLED' };
